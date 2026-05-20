@@ -2,6 +2,7 @@ from fastapi import FastAPI, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import text
 from app.core.config import settings
+from fastapi.middleware.cors import CORSMiddleware
 from app.core.database import get_db
 
 from app.domains.users.router import router as users_router
@@ -10,6 +11,21 @@ app = FastAPI(
     title=settings.app_name,
     description="Modular backend API for personalized tiered bowl meal prep and pre-orders.",
     version="1.0.0",
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    # Allow your Next.js frontend origin
+    allow_origins=["http://localhost:3000"], 
+    
+    # CRITICAL: Must be True so the frontend can receive the HttpOnly Refresh Token Cookie!
+    allow_credentials=True, 
+    
+    # Allow all HTTP methods (GET, POST, PUT, DELETE, OPTIONS)
+    allow_methods=["*"], 
+    
+    # Allow all headers (Authorization, Content-Type, etc.)
+    allow_headers=["*"], 
 )
 
 # TODO: We will include our domain routers here later like this:

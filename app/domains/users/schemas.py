@@ -39,3 +39,9 @@ class UserResponse(BaseModel):
 
     # This tells Pydantic to read the data directly from the SQLAlchemy model
     model_config = {"from_attributes": True}
+
+
+
+class ChangePasswordRequest(BaseModel):
+    current_password: str
+    new_password: str

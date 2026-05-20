@@ -10,6 +10,13 @@ class Settings(BaseSettings):
     access_token_expire_minutes: int = 30
     refresh_token_expire_days: int = 7
 
+    # Email Settings
+    mail_username: str
+    mail_password: str
+    mail_from: str
+    mail_port: int = 465
+    mail_server: str = "smtp.gmail.com"
+
     # Loads variables from the .env file in the root directory
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
 

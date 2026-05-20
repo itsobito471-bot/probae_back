@@ -7,10 +7,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
 from app.core.database import get_db, get_redis
+from app.core.email import send_otp_email
 from app.core.security import get_current_user, get_password_hash, verify_password, create_access_token, create_refresh_token
 from app.core.config import settings
 from app.domains.users.models import User
-from app.domains.users.schemas import ForgotPasswordRequest, LoginRequest, ResetPasswordRequest, TokenResponse, UserResponse, Verify2FARequest
+from app.domains.users.schemas import ChangePasswordRequest, ForgotPasswordRequest, LoginRequest, ResetPasswordRequest, TokenResponse, UserResponse, Verify2FARequest
 
 router = APIRouter()
 
@@ -79,10 +80,21 @@ async def forgot_password(
     redis_key = f"reset_otp:{user.email}"
     await redis.setex(name=redis_key, time=600, value=otp)
 
-    # 4. TODO: Send actual email via SMTP.
-    print(f"\n📧 EMAIL MOCK: Sending OTP {otp} to {user.email} (Stored in Redis)\n")
+
+    redis_key = f"reset_otp:{user.email}"
+    await redis.setex(name=redis_key, time=600, value=otp)
+
+    # 4. SEND THE ACTUAL BRANDED EMAIL (We use 'await' so it runs asynchronously)
+    try:
+        await send_otp_email(email_to=user.email, otp=otp)
+    except Exception as e:
+        print(f"Failed to send email: {e}")
+        # We still return success to the user so we don't expose SMTP errors to the frontend
+        return {"message": "If that email exists, an OTP has been sent."}
 
     return {"message": "If that email exists, an OTP has been sent."}
+
+    
 
 
 @router.post("/reset-password")
@@ -177,3 +189,43 @@ async def get_me(current_user: User = Depends(get_current_user)):
     """
     # The get_current_user dependency already fetched the user from the DB!
     return current_user
+
+
+@router.post("/logout")
+async def logout(response: Response):
+    """
+    Clears the HttpOnly refresh token cookie to end the session securely.
+    """
+    response.delete_cookie(
+        key="refresh_token",
+        httponly=True,
+        secure=(settings.environment == "production"),
+        samesite="lax",
+    )
+    
+    return {"message": "Successfully logged out"}
+
+
+
+@router.post("/change-password")
+async def change_password(
+    request: ChangePasswordRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Allows a logged-in user to change their password by providing their current password.
+    """
+    # 1. Verify the current password
+    if not verify_password(request.current_password, current_user.password_hash):
+        raise HTTPException(status_code=400, detail="Incorrect current password")
+    
+    # 2. Prevent setting the same password (optional but good UX)
+    if request.current_password == request.new_password:
+        raise HTTPException(status_code=400, detail="New password cannot be the same as the old password")
+
+    # 3. Hash and save the new password
+    current_user.password_hash = get_password_hash(request.new_password)
+    await db.commit()
+
+    return {"message": "Password changed successfully"}
