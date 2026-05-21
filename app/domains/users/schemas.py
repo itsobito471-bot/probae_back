@@ -30,14 +30,24 @@ class Verify2FARequest(BaseModel):
 
 
 
+class ProfilePictureResponse(BaseModel):
+    id: int
+    file_url: str
+
+    model_config = {"from_attributes": True}
+
+# 2. Update your UserResponse
 class UserResponse(BaseModel):
     id: int
+    username: str # (Assuming you still have this from our dual-login update!)
     email: EmailStr
     full_name: str | None = None
     role: str
     two_factor_enabled: bool
+    
+    # 3. Add the nested relationship right here
+    profile_picture: Optional[ProfilePictureResponse] = None 
 
-    # This tells Pydantic to read the data directly from the SQLAlchemy model
     model_config = {"from_attributes": True}
 
 
@@ -45,3 +55,7 @@ class UserResponse(BaseModel):
 class ChangePasswordRequest(BaseModel):
     current_password: str
     new_password: str
+
+
+class UserUpdate(BaseModel):
+    profile_picture_id: int | None = None

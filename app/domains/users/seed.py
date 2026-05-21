@@ -3,6 +3,7 @@ from sqlalchemy.future import select
 from passlib.context import CryptContext
 
 from app.domains.users.models import User, UserRole
+from app.domains.documents.models import Document
 
 # Setup password hashing locally for this domain
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")

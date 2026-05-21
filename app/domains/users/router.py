@@ -11,7 +11,7 @@ from app.core.email import send_otp_email
 from app.core.security import get_current_user, get_password_hash, verify_password, create_access_token, create_refresh_token
 from app.core.config import settings
 from app.domains.users.models import User
-from app.domains.users.schemas import ChangePasswordRequest, ForgotPasswordRequest, LoginRequest, ResetPasswordRequest, TokenResponse, UserResponse, Verify2FARequest
+from app.domains.users.schemas import ChangePasswordRequest, ForgotPasswordRequest, LoginRequest, ResetPasswordRequest, TokenResponse, UserResponse, UserUpdate, Verify2FARequest
 from sqlalchemy import or_
 router = APIRouter()
 
@@ -247,3 +247,17 @@ async def change_password(
     await db.commit()
 
     return {"message": "Password changed successfully"}
+
+
+@router.patch("/me", response_model=UserResponse)
+async def update_current_user(
+    update_data: UserUpdate,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    if update_data.profile_picture_id is not None:
+        current_user.profile_picture_id = update_data.profile_picture_id
+        
+    await db.commit()
+    await db.refresh(current_user)
+    return current_user

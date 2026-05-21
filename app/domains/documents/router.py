@@ -18,31 +18,28 @@ async def upload_document(
     db: AsyncSession = Depends(get_db)
 ):
     try:
-        # 1. Generate a unique filename to prevent overwriting
+        # 1. Generate a unique filename
         file_extension = file.filename.split(".")[-1]
         unique_filename = f"{uuid.uuid4().hex}.{file_extension}"
 
-        # 2. Upload to Cloudflare R2
-        # We run this in a threadpool because boto3 is synchronous
+        # 2. Safely read the file into memory and get its size
+        contents = await file.read()
+        file_size = len(contents)
+
+        # 3. Upload raw bytes to Cloudflare R2
         import asyncio
         loop = asyncio.get_event_loop()
         await loop.run_in_executor(
             None, 
-            lambda: r2_client.upload_fileobj(
-                file.file, 
-                settings.r2_bucket_name, 
-                unique_filename,
-                ExtraArgs={"ContentType": file.content_type}
+            lambda: r2_client.put_object(
+                Bucket=settings.r2_bucket_name,
+                Key=unique_filename,
+                Body=contents,
+                ContentType=file.content_type
             )
         )
 
-        # 3. Create the database record
-        # Note: You have to calculate size or rely on the frontend payload, 
-        # but for safety, we check the spool length
-        file.file.seek(0, 2)
-        file_size = file.file.tell()
-        file.file.seek(0) # Reset pointer
-
+        # 4. Create the database record
         new_doc = Document(
             filename=unique_filename,
             content_type=file.content_type,
