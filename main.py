@@ -6,6 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.core.database import get_db
 
 from app.domains.users.router import router as users_router
+from app.domains.documents.router import router as documents_router
 
 app = FastAPI(
     title=settings.app_name,
@@ -33,6 +34,7 @@ app.add_middleware(
 # app.include_router(inventory_router.router, prefix="/api/v1/inventory", tags=["Inventory"])
 
 app.include_router(users_router, prefix="/api/v1/auth", tags=["Authentication"])
+app.include_router(documents_router, prefix="/api/v1/documents", tags=["Documents"])
 
 @app.get("/")
 async def root():

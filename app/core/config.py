@@ -17,6 +17,13 @@ class Settings(BaseSettings):
     mail_port: int = 465
     mail_server: str = "smtp.gmail.com"
 
+
+
+    r2_account_id: str
+    r2_access_key: str
+    r2_secret_key: str
+    r2_bucket_name: str
+
     # Loads variables from the .env file in the root directory
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
 

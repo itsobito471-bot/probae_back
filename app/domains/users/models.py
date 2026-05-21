@@ -1,8 +1,9 @@
 import enum
 from datetime import datetime, timezone
-from sqlalchemy import String, Boolean, DateTime, Enum
+from sqlalchemy import ForeignKey, String, Boolean, DateTime, Enum
 from sqlalchemy.orm import Mapped, mapped_column
 from app.core.database import Base
+from sqlalchemy.orm import relationship
 
 class UserRole(str, enum.Enum):
     ADMIN = "admin"
@@ -28,6 +29,10 @@ class User(Base):
     two_factor_enabled: Mapped[bool] = mapped_column(Boolean, default=False)
     two_factor_secret: Mapped[str] = mapped_column(String(100), nullable=True)
     
+    profile_picture_id: Mapped[int] = mapped_column(ForeignKey("documents.id"), nullable=True)
+    
+    # This relationship lets SQLAlchemy fetch the Document object automatically
+    profile_picture = relationship("Document", lazy="joined")
     # Timestamps
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
