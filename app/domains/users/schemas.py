@@ -59,3 +59,4 @@ class ChangePasswordRequest(BaseModel):
 
 class UserUpdate(BaseModel):
     profile_picture_id: int | None = None
+    full_name: str | None = None

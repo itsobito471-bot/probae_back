@@ -257,6 +257,8 @@ async def update_current_user(
 ):
     if update_data.profile_picture_id is not None:
         current_user.profile_picture_id = update_data.profile_picture_id
+    if update_data.full_name is not None:
+        current_user.full_name = update_data.full_name
         
     await db.commit()
     await db.refresh(current_user)
