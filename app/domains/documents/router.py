@@ -1,10 +1,12 @@
 import uuid
+import asyncio
 from fastapi import APIRouter, Depends, UploadFile, File, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
+
 from app.core.database import get_db
 from app.core.security import get_current_user
 from app.core.config import settings
-from app.core.storage import r2_client, get_r2_url
+from app.core.storage import r2_client
 from app.domains.documents.models import Document
 from app.domains.documents.schemas import DocumentResponse
 from app.domains.users.models import User
@@ -27,7 +29,6 @@ async def upload_document(
         file_size = len(contents)
 
         # 3. Upload raw bytes to Cloudflare R2
-        import asyncio
         loop = asyncio.get_event_loop()
         await loop.run_in_executor(
             None, 
@@ -39,11 +40,10 @@ async def upload_document(
             )
         )
 
-        # 4. Create the database record
+        # 4. Create the database record (Filename only!)
         new_doc = Document(
             filename=unique_filename,
             content_type=file.content_type,
-            file_url=get_r2_url(unique_filename),
             size_bytes=file_size
         )
         

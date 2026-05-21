@@ -9,7 +9,8 @@ class Document(Base):
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
     filename: Mapped[str] = mapped_column(String(255), nullable=False)
     content_type: Mapped[str] = mapped_column(String(100), nullable=False)
-    file_url: Mapped[str] = mapped_column(String(500), nullable=False)
-    size_bytes: Mapped[int] = mapped_column(Integer, nullable=False)
     
+    # DELETED: file_url column
+    
+    size_bytes: Mapped[int] = mapped_column(Integer, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))

@@ -25,3 +25,13 @@ This directory will house the API server for the **probae** platform.
 for starting the app use 
 uvicorn main:app --reload 
 this command
+
+
+for intializing alembic 
+alembic init -t async alembic
+use this command
+
+for migrations use 
+alembic revision --autogenerate -m "Initial schema setup"
+for upgrade use 
+alembic upgrade head

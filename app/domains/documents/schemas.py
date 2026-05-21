@@ -5,8 +5,6 @@ class DocumentResponse(BaseModel):
     id: int
     filename: str
     content_type: str
-    file_url: str
+    # DELETED: file_url
     size_bytes: int
     created_at: datetime
-
-    model_config = {"from_attributes": True}

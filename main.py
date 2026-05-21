@@ -7,6 +7,7 @@ from app.core.database import get_db
 
 from app.domains.users.router import router as users_router
 from app.domains.documents.router import router as documents_router
+from app.domains.settings.router import router as settings_router
 
 app = FastAPI(
     title=settings.app_name,
@@ -35,6 +36,7 @@ app.add_middleware(
 
 app.include_router(users_router, prefix="/api/v1/auth", tags=["Authentication"])
 app.include_router(documents_router, prefix="/api/v1/documents", tags=["Documents"])
+app.include_router(settings_router, prefix="/api/v1/settings", tags=["Settings"])
 
 @app.get("/")
 async def root():

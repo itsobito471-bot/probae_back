@@ -32,7 +32,7 @@ class Verify2FARequest(BaseModel):
 
 class ProfilePictureResponse(BaseModel):
     id: int
-    file_url: str
+    filename: str # <-- Changed from file_url
 
     model_config = {"from_attributes": True}
 
