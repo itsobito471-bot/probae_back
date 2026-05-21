@@ -14,9 +14,10 @@ async def seed_users(db: AsyncSession):
     """Handles all user-related database seeding."""
     print("⏳ Seeding Users Domain...")
     admin_email = "admin@probae.com"
+    username = "probae_admin"
     
     # Check if admin exists to prevent duplicates
-    result = await db.execute(select(User).where(User.email == admin_email))
+    result = await db.execute(select(User).where(User.email == admin_email, User.username == username))
     existing_admin = result.scalars().first()
     
     if existing_admin:
@@ -25,6 +26,7 @@ async def seed_users(db: AsyncSession):
 
     # If not, create them
     new_admin = User(
+        username=username,
         email=admin_email,
         password_hash=get_password_hash("SuperSecretPassword123!"),
         full_name="System Admin",

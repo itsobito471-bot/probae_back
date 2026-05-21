@@ -4,7 +4,7 @@ from typing import Optional
 from pydantic import BaseModel, EmailStr
 
 class LoginRequest(BaseModel):
-    email: EmailStr
+    identifier: str
     password: str
     totp_code: Optional[str] = None  # Make this optional for the first step of login
 
@@ -18,7 +18,7 @@ class TokenResponse(BaseModel):
 
 
 class ForgotPasswordRequest(BaseModel):
-    email: EmailStr
+    identifier: str
 
 class ResetPasswordRequest(BaseModel):
     email: EmailStr

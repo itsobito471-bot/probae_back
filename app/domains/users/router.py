@@ -12,7 +12,7 @@ from app.core.security import get_current_user, get_password_hash, verify_passwo
 from app.core.config import settings
 from app.domains.users.models import User
 from app.domains.users.schemas import ChangePasswordRequest, ForgotPasswordRequest, LoginRequest, ResetPasswordRequest, TokenResponse, UserResponse, Verify2FARequest
-
+from sqlalchemy import or_
 router = APIRouter()
 
 @router.post("/login", response_model=TokenResponse)
@@ -21,11 +21,22 @@ async def login_user(
     login_data: LoginRequest, 
     db: AsyncSession = Depends(get_db)
 ):
-    result = await db.execute(select(User).where(User.email == login_data.email))
+    result = await db.execute(
+        select(User).where(
+            or_(
+                User.email == login_data.identifier,
+                User.username == login_data.identifier
+            )
+        )
+    )
     user = result.scalars().first()
 
     if not user or not verify_password(login_data.password, user.password_hash):
-        raise HTTPException(status_code=401, detail="Incorrect email or password")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect username/email or password", # Updated error message
+            headers={"WWW-Authenticate": "Bearer"},
+        )
 
     if not user.is_active:
         raise HTTPException(status_code=400, detail="Inactive user account")
@@ -65,7 +76,14 @@ async def forgot_password(
     redis: Redis = Depends(get_redis) # Inject Redis
 ):
     # 1. Find the user in Postgres
-    result = await db.execute(select(User).where(User.email == request.email))
+    result = await db.execute(
+        select(User).where(
+            or_(
+                User.email == request.identifier,
+                User.username == request.identifier
+            )
+        )
+    )
     user = result.scalars().first()
 
     # Even if user doesn't exist, return success to prevent email enumeration
