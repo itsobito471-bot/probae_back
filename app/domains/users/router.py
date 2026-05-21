@@ -1,6 +1,7 @@
 import random
 
 from fastapi import APIRouter, Depends, HTTPException, Response, status
+import jwt
 import pyotp
 from redis import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -11,7 +12,7 @@ from app.core.email import send_otp_email
 from app.core.security import get_current_user, get_password_hash, verify_password, create_access_token, create_refresh_token
 from app.core.config import settings
 from app.domains.users.models import User
-from app.domains.users.schemas import ChangePasswordRequest, ForgotPasswordRequest, LoginRequest, ResetPasswordRequest, TokenResponse, UserResponse, UserUpdate, Verify2FARequest
+from app.domains.users.schemas import ChangePasswordRequest, ForgotPasswordRequest, LoginRequest, RefreshTokenRequest, ResetPasswordRequest, TokenResponse, UserResponse, UserUpdate, Verify2FARequest
 from sqlalchemy import or_
 router = APIRouter()
 
@@ -263,3 +264,50 @@ async def update_current_user(
     await db.commit()
     await db.refresh(current_user)
     return current_user
+
+
+
+@router.post("/refresh", response_model=TokenResponse)
+async def refresh_access_token(
+    body: RefreshTokenRequest, 
+    db: AsyncSession = Depends(get_db)
+):
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Invalid or expired refresh token",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+    
+    try:
+        # 1. Decode the token using PyJWT
+        payload = jwt.decode(
+            body.refresh_token, 
+            settings.secret_key, 
+            algorithms=[settings.algorithm]
+        )
+        
+        user_id_str: str = payload.get("sub")
+        token_type: str = payload.get("type")
+        
+        # 2. SECURITY: Ensure they are actually sending a "refresh" token
+        if user_id_str is None or token_type != "refresh":
+            raise credentials_exception
+            
+    except jwt.PyJWTError:
+        raise credentials_exception
+
+    # 3. Verify the user still exists in the database
+    result = await db.execute(select(User).where(User.id == int(user_id_str)))
+    user = result.scalars().first()
+    
+    if not user or not user.is_active:
+        raise credentials_exception
+
+    # 4. Generate a brand new access token
+    new_access_token = create_access_token(data={"sub": str(user.id)})
+
+    # 5. Return it
+    return {
+        "access_token": new_access_token,
+        "token_type": "bearer"
+    }
