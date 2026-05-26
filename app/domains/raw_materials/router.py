@@ -1,0 +1,124 @@
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.future import select
+from sqlalchemy import func, or_
+from typing import Optional
+
+from app.core.logging_route import AuditLogRoute
+from app.core.database import get_db
+from app.core.security import get_current_user
+from app.domains.users.models import User
+from app.domains.raw_materials.models import RawMaterial
+from app.domains.raw_materials.schemas import RawMaterialCreate, RawMaterialUpdate, RawMaterialResponse, PaginatedRawMaterials
+
+router = APIRouter(route_class=AuditLogRoute)
+
+@router.post("/", response_model=RawMaterialResponse, status_code=status.HTTP_201_CREATED)
+async def create_raw_material(
+    material_in: RawMaterialCreate,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    # Check if name already exists
+    result = await db.execute(select(RawMaterial).where(func.lower(RawMaterial.name) == material_in.name.lower()))
+    if result.scalars().first():
+        raise HTTPException(status_code=400, detail="Raw material with this name already exists.")
+
+    new_material = RawMaterial(**material_in.model_dump())
+    db.add(new_material)
+    await db.commit()
+    await db.refresh(new_material)
+    return new_material
+
+@router.get("/", response_model=PaginatedRawMaterials)
+async def get_raw_materials(
+    search: Optional[str] = None,
+    page: int = Query(1, ge=1),
+    size: int = Query(20, ge=1, le=100),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    query = select(RawMaterial)
+    
+    if search:
+        query = query.where(RawMaterial.name.ilike(f"%{search}%"))
+        
+    # Get total count
+    count_query = select(func.count()).select_from(query.subquery())
+    total_result = await db.execute(count_query)
+    total = total_result.scalar()
+
+    # Pagination
+    query = query.order_by(RawMaterial.name).offset((page - 1) * size).limit(size)
+    result = await db.execute(query)
+    items = result.scalars().all()
+
+    return {"items": items, "total": total, "page": page, "size": size}
+
+@router.get("/{id}", response_model=RawMaterialResponse)
+async def get_raw_material(id: int, current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(RawMaterial).where(RawMaterial.id == id))
+    material = result.scalars().first()
+    if not material:
+        raise HTTPException(status_code=404, detail="Raw material not found")
+    return material
+
+@router.patch("/{id}", response_model=RawMaterialResponse)
+async def update_raw_material(
+    id: int, 
+    material_update: RawMaterialUpdate,
+    current_user: User = Depends(get_current_user), 
+    db: AsyncSession = Depends(get_db)
+):
+    result = await db.execute(select(RawMaterial).where(RawMaterial.id == id))
+    material = result.scalars().first()
+    if not material:
+        raise HTTPException(status_code=404, detail="Raw material not found")
+
+    for key, value in material_update.model_dump(exclude_unset=True).items():
+        setattr(material, key, value)
+
+    await db.commit()
+    await db.refresh(material)
+    return material
+
+@router.delete("/{id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_raw_material(
+    id: int, 
+    current_user: User = Depends(get_current_user), 
+    db: AsyncSession = Depends(get_db)
+):
+    result = await db.execute(select(RawMaterial).where(RawMaterial.id == id))
+    material = result.scalars().first()
+    if not material:
+        raise HTTPException(status_code=404, detail="Raw material not found")
+    
+    await db.delete(material)
+    await db.commit()
+    return None
+
+
+
+from app.domains.raw_materials.schemas import MacrosUpdate
+
+@router.patch("/{id}/macros", response_model=RawMaterialResponse)
+async def update_raw_material_macros(
+    id: int, 
+    macro_data: MacrosUpdate,
+    current_user: User = Depends(get_current_user), 
+    db: AsyncSession = Depends(get_db)
+):
+    """Dedicated endpoint for the Calorie Management module."""
+    result = await db.execute(select(RawMaterial).where(RawMaterial.id == id))
+    material = result.scalars().first()
+    
+    if not material:
+        raise HTTPException(status_code=404, detail="Raw material not found")
+
+    # Update only the nutritional fields provided
+    for key, value in macro_data.model_dump(exclude_unset=True).items():
+        setattr(material, key, value)
+
+    await db.commit()
+    await db.refresh(material)
+    return material
