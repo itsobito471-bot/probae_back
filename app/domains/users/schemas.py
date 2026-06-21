@@ -32,6 +32,7 @@ class Verify2FARequest(BaseModel):
 
 class ProfilePictureResponse(BaseModel):
     id: int
+    ulid: str
     filename: str # <-- Changed from file_url
 
     model_config = {"from_attributes": True}
@@ -39,11 +40,13 @@ class ProfilePictureResponse(BaseModel):
 # 2. Update your UserResponse
 class UserResponse(BaseModel):
     id: int
+    ulid: str
     username: str # (Assuming you still have this from our dual-login update!)
     email: EmailStr
     full_name: str | None = None
     role: str
     two_factor_enabled: bool
+
     
     # 3. Add the nested relationship right here
     profile_picture: Optional[ProfilePictureResponse] = None 

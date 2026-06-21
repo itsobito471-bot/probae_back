@@ -2,7 +2,7 @@ import enum
 from datetime import datetime, timezone
 from sqlalchemy import ForeignKey, String, Boolean, DateTime, Enum
 from sqlalchemy.orm import Mapped, mapped_column
-from app.core.database import Base
+from app.core.database import Base, generate_ulid
 from sqlalchemy.orm import relationship
 
 class UserRole(str, enum.Enum):
@@ -14,6 +14,8 @@ class User(Base):
     __tablename__ = "users"
 
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    ulid: Mapped[str] = mapped_column(String(26), default=generate_ulid, unique=True, index=True, nullable=False)
+
     
     # Core Identity
     username: Mapped[str] = mapped_column(String(100), unique=True, index=True, nullable=False)

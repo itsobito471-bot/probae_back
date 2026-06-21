@@ -55,22 +55,22 @@ async def get_raw_materials(
 
     return {"items": items, "total": total, "page": page, "size": size}
 
-@router.get("/{id}", response_model=RawMaterialResponse)
-async def get_raw_material(id: int, current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(RawMaterial).where(RawMaterial.id == id))
+@router.get("/{ulid}", response_model=RawMaterialResponse)
+async def get_raw_material(ulid: str, current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(RawMaterial).where(RawMaterial.ulid == ulid))
     material = result.scalars().first()
     if not material:
         raise HTTPException(status_code=404, detail="Raw material not found")
     return material
 
-@router.patch("/{id}", response_model=RawMaterialResponse)
+@router.patch("/{ulid}", response_model=RawMaterialResponse)
 async def update_raw_material(
-    id: int, 
+    ulid: str, 
     material_update: RawMaterialUpdate,
     current_user: User = Depends(get_current_user), 
     db: AsyncSession = Depends(get_db)
 ):
-    result = await db.execute(select(RawMaterial).where(RawMaterial.id == id))
+    result = await db.execute(select(RawMaterial).where(RawMaterial.ulid == ulid))
     material = result.scalars().first()
     if not material:
         raise HTTPException(status_code=404, detail="Raw material not found")
@@ -82,13 +82,13 @@ async def update_raw_material(
     await db.refresh(material)
     return material
 
-@router.delete("/{id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/{ulid}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_raw_material(
-    id: int, 
+    ulid: str, 
     current_user: User = Depends(get_current_user), 
     db: AsyncSession = Depends(get_db)
 ):
-    result = await db.execute(select(RawMaterial).where(RawMaterial.id == id))
+    result = await db.execute(select(RawMaterial).where(RawMaterial.ulid == ulid))
     material = result.scalars().first()
     if not material:
         raise HTTPException(status_code=404, detail="Raw material not found")
@@ -101,15 +101,15 @@ async def delete_raw_material(
 
 from app.domains.raw_materials.schemas import MacrosUpdate
 
-@router.patch("/{id}/macros", response_model=RawMaterialResponse)
+@router.patch("/{ulid}/macros", response_model=RawMaterialResponse)
 async def update_raw_material_macros(
-    id: int, 
+    ulid: str, 
     macro_data: MacrosUpdate,
     current_user: User = Depends(get_current_user), 
     db: AsyncSession = Depends(get_db)
 ):
     """Dedicated endpoint for the Calorie Management module."""
-    result = await db.execute(select(RawMaterial).where(RawMaterial.id == id))
+    result = await db.execute(select(RawMaterial).where(RawMaterial.ulid == ulid))
     material = result.scalars().first()
     
     if not material:

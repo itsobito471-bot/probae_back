@@ -3,6 +3,7 @@ from datetime import datetime
 
 class DocumentResponse(BaseModel):
     id: int
+    ulid: str
     filename: str
     content_type: str
     # DELETED: file_url

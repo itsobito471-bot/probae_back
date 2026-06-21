@@ -18,10 +18,16 @@ AsyncSessionLocal = async_sessionmaker(
 )
 
 
+from ulid import ULID
+
+def generate_ulid() -> str:
+    return str(ULID())
+
 redis_client = aioredis.from_url(settings.redis_url, decode_responses=True)
 
 # 3. Create the declarative base for your models
 class Base(DeclarativeBase):
+
     pass
 
 async def get_redis():

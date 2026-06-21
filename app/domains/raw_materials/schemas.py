@@ -36,8 +36,10 @@ class RawMaterialUpdate(BaseModel):
 
 class RawMaterialResponse(RawMaterialBase):
     id: int
+    ulid: str
     created_at: datetime
     updated_at: datetime
+
 
     model_config = {"from_attributes": True}
 
