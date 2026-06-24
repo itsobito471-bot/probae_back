@@ -9,6 +9,7 @@ from app.domains.users.router import router as users_router
 from app.domains.documents.router import router as documents_router
 from app.domains.settings.router import router as settings_router
 from app.domains.raw_materials.router import router as raw_materials_router
+from app.domains.raw_materials.category_router import router as raw_materials_category_router
 from app.domains.ingredients.router import router as ingredients_router
 
 app = FastAPI(
@@ -39,6 +40,7 @@ app.add_middleware(
 app.include_router(users_router, prefix="/api/v1/auth", tags=["Authentication"])
 app.include_router(documents_router, prefix="/api/v1/documents", tags=["Documents"])
 app.include_router(settings_router, prefix="/api/v1/settings", tags=["Settings"])
+app.include_router(raw_materials_category_router, prefix="/api/v1/raw-material-categories", tags=["Raw Material Categories"])
 app.include_router(raw_materials_router, prefix="/api/v1/raw-materials", tags=["Raw Materials"])
 app.include_router(ingredients_router, prefix="/api/v1/ingredients", tags=["Ingredients"])
 

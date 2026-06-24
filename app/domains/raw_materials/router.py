@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
+from sqlalchemy.orm import selectinload
 from sqlalchemy import func, or_
 from typing import Optional
 
@@ -8,7 +9,7 @@ from app.core.logging_route import AuditLogRoute
 from app.core.database import get_db
 from app.core.security import get_current_user
 from app.domains.users.models import User
-from app.domains.raw_materials.models import RawMaterial
+from app.domains.raw_materials.models import RawMaterial, RawMaterialCategory
 from app.domains.raw_materials.schemas import RawMaterialCreate, RawMaterialUpdate, RawMaterialResponse, PaginatedRawMaterials
 
 router = APIRouter(route_class=AuditLogRoute)
@@ -24,11 +25,24 @@ async def create_raw_material(
     if result.scalars().first():
         raise HTTPException(status_code=400, detail="Raw material with this name already exists.")
 
-    new_material = RawMaterial(**material_in.model_dump())
+    # Resolve category_ulid to category_id
+    category_id = None
+    if material_in.category_ulid:
+        cat_result = await db.execute(select(RawMaterialCategory).where(RawMaterialCategory.ulid == material_in.category_ulid))
+        category = cat_result.scalars().first()
+        if not category:
+            raise HTTPException(status_code=400, detail="Invalid category ULID.")
+        category_id = category.id
+
+    data = material_in.model_dump(exclude={"category_ulid"})
+    new_material = RawMaterial(**data, category_id=category_id)
     db.add(new_material)
     await db.commit()
     await db.refresh(new_material)
-    return new_material
+    
+    # Reload with relationships
+    result = await db.execute(select(RawMaterial).options(selectinload(RawMaterial.category)).where(RawMaterial.id == new_material.id))
+    return result.scalars().first()
 
 @router.get("/", response_model=PaginatedRawMaterials)
 async def get_raw_materials(
@@ -38,7 +52,7 @@ async def get_raw_materials(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    query = select(RawMaterial)
+    query = select(RawMaterial).options(selectinload(RawMaterial.category))
     
     if search:
         query = query.where(RawMaterial.name.ilike(f"%{search}%"))
@@ -57,7 +71,7 @@ async def get_raw_materials(
 
 @router.get("/{ulid}", response_model=RawMaterialResponse)
 async def get_raw_material(ulid: str, current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(RawMaterial).where(RawMaterial.ulid == ulid))
+    result = await db.execute(select(RawMaterial).options(selectinload(RawMaterial.category)).where(RawMaterial.ulid == ulid))
     material = result.scalars().first()
     if not material:
         raise HTTPException(status_code=404, detail="Raw material not found")
@@ -75,12 +89,27 @@ async def update_raw_material(
     if not material:
         raise HTTPException(status_code=404, detail="Raw material not found")
 
-    for key, value in material_update.model_dump(exclude_unset=True).items():
+    update_data = material_update.model_dump(exclude_unset=True)
+    if "category_ulid" in update_data:
+        cat_ulid = update_data.pop("category_ulid")
+        if cat_ulid:
+            cat_result = await db.execute(select(RawMaterialCategory).where(RawMaterialCategory.ulid == cat_ulid))
+            category = cat_result.scalars().first()
+            if not category:
+                raise HTTPException(status_code=400, detail="Invalid category ULID.")
+            update_data["category_id"] = category.id
+        else:
+            update_data["category_id"] = None
+
+    for key, value in update_data.items():
         setattr(material, key, value)
 
     await db.commit()
     await db.refresh(material)
-    return material
+    
+    # Reload with relationships
+    res = await db.execute(select(RawMaterial).options(selectinload(RawMaterial.category)).where(RawMaterial.id == material.id))
+    return res.scalars().first()
 
 @router.delete("/{ulid}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_raw_material(

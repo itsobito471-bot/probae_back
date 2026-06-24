@@ -10,6 +10,17 @@ class UnitType(str, enum.Enum):
     G = "g"
     ML = "ml"
 
+class RawMaterialCategory(Base):
+    __tablename__ = "raw_material_categories"
+
+    id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    ulid: Mapped[str] = mapped_column(String(26), default=generate_ulid, unique=True, index=True, nullable=False)
+    name: Mapped[str] = mapped_column(String(255), unique=True, index=True, nullable=False)
+    description: Mapped[str] = mapped_column(Text, nullable=True)
+    
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+
 class RawMaterial(Base):
     __tablename__ = "raw_materials"
 
@@ -20,6 +31,9 @@ class RawMaterial(Base):
     description: Mapped[str] = mapped_column(Text, nullable=True)
     price: Mapped[float] = mapped_column(Numeric(10, 2), nullable=False)
     unit: Mapped[UnitType] = mapped_column(Enum(UnitType), nullable=False)
+    
+    category_id: Mapped[int] = mapped_column(ForeignKey("raw_material_categories.id", ondelete="SET NULL"), nullable=True)
+    category = relationship("RawMaterialCategory")
     
     # --- Images ---
     image_filename: Mapped[str] = mapped_column(String(255), nullable=True) # Primary/Thumbnail

@@ -3,6 +3,31 @@ from typing import Optional
 from datetime import datetime
 from app.domains.raw_materials.models import UnitType
 
+class RawMaterialCategoryBase(BaseModel):
+    name: str
+    description: Optional[str] = None
+
+class RawMaterialCategoryCreate(RawMaterialCategoryBase):
+    pass
+
+class RawMaterialCategoryUpdate(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+
+class RawMaterialCategoryResponse(RawMaterialCategoryBase):
+    id: int
+    ulid: str
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = {"from_attributes": True}
+
+class PaginatedRawMaterialCategories(BaseModel):
+    items: list[RawMaterialCategoryResponse]
+    total: int
+    page: int
+    size: int
+
 class RawMaterialBase(BaseModel):
     name: str
     description: Optional[str] = None
@@ -16,6 +41,7 @@ class RawMaterialBase(BaseModel):
     fiber: Optional[float] = None
     fat: Optional[float] = None
     micros: Optional[list[str]] = None
+    category_ulid: Optional[str] = None
 
 class RawMaterialCreate(RawMaterialBase):
     pass
@@ -33,13 +59,14 @@ class RawMaterialUpdate(BaseModel):
     fiber: Optional[float] = None
     fat: Optional[float] = None
     micros: Optional[list[str]] = None
+    category_ulid: Optional[str] = None
 
 class RawMaterialResponse(RawMaterialBase):
     id: int
     ulid: str
+    category: Optional[RawMaterialCategoryResponse] = None
     created_at: datetime
     updated_at: datetime
-
 
     model_config = {"from_attributes": True}
 
