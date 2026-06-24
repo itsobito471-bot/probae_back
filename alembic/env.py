@@ -22,6 +22,7 @@ from app.domains.documents.models import Document
 from app.domains.settings.models import SystemSetting
 from app.domains.raw_materials.models import RawMaterial
 from app.domains.audit.models import AuditLog
+from app.domains.ingredients.models import Ingredient, IngredientRawMaterial
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
