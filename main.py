@@ -11,6 +11,7 @@ from app.domains.settings.router import router as settings_router
 from app.domains.raw_materials.router import router as raw_materials_router
 from app.domains.raw_materials.category_router import router as raw_materials_category_router
 from app.domains.ingredients.router import router as ingredients_router
+from app.domains.bowls.router import router as bowls_router
 
 app = FastAPI(
     title=settings.app_name,
@@ -43,6 +44,7 @@ app.include_router(settings_router, prefix="/api/v1/settings", tags=["Settings"]
 app.include_router(raw_materials_category_router, prefix="/api/v1/raw-material-categories", tags=["Raw Material Categories"])
 app.include_router(raw_materials_router, prefix="/api/v1/raw-materials", tags=["Raw Materials"])
 app.include_router(ingredients_router, prefix="/api/v1/ingredients", tags=["Ingredients"])
+app.include_router(bowls_router, prefix="/api/v1/bowl-categories", tags=["Bowl Categories"])
 
 @app.get("/")
 async def root():
