@@ -73,6 +73,6 @@ class RawMaterialStockLog(Base):
     new_stock: Mapped[float] = mapped_column(Numeric(10, 2), nullable=False)
     
     description: Mapped[str] = mapped_column(Text, nullable=True)
-    
     created_by_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    created_by = relationship("User")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))

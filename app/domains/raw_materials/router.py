@@ -241,6 +241,7 @@ async def get_raw_material_stock_logs(
 
     logs_result = await db.execute(
         select(RawMaterialStockLog)
+        .options(selectinload(RawMaterialStockLog.created_by))
         .where(RawMaterialStockLog.raw_material_id == material.id)
         .order_by(RawMaterialStockLog.created_at.desc())
     )

@@ -94,6 +94,13 @@ class StockAdjustmentRequest(BaseModel):
 class StockThresholdUpdateRequest(BaseModel):
     stock_threshold: float = Field(..., ge=0)
 
+class UserMini(BaseModel):
+    id: int
+    full_name: Optional[str] = None
+    email: str
+    
+    model_config = {"from_attributes": True}
+
 class StockLogResponse(BaseModel):
     ulid: str
     quantity_change: float
@@ -101,5 +108,6 @@ class StockLogResponse(BaseModel):
     new_stock: float
     description: Optional[str] = None
     created_at: datetime
+    created_by: Optional[UserMini] = None
 
     model_config = {"from_attributes": True}
