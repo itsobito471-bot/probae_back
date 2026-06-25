@@ -69,6 +69,16 @@ async def get_raw_materials(
 
     return {"items": items, "total": total, "page": page, "size": size}
 
+@router.get("/metrics/low-stock-count")
+async def get_low_stock_count(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    query = select(func.count()).select_from(RawMaterial).where(RawMaterial.current_stock <= RawMaterial.stock_threshold)
+    result = await db.execute(query)
+    count = result.scalar()
+    return {"count": count}
+
 @router.get("/{ulid}", response_model=RawMaterialResponse)
 async def get_raw_material(ulid: str, current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(RawMaterial).options(selectinload(RawMaterial.category)).where(RawMaterial.ulid == ulid))
