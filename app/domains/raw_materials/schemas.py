@@ -64,6 +64,8 @@ class RawMaterialUpdate(BaseModel):
 class RawMaterialResponse(RawMaterialBase):
     id: int
     ulid: str
+    current_stock: float
+    stock_threshold: float
     category: Optional[RawMaterialCategoryResponse] = None
     created_at: datetime
     updated_at: datetime
@@ -84,3 +86,20 @@ class MacrosUpdate(BaseModel):
     fiber: Optional[float] = None
     fat: Optional[float] = None
     micros: Optional[list[str]] = None
+
+class StockAdjustmentRequest(BaseModel):
+    quantity_change: float = Field(..., description="Amount to add (positive) or remove (negative)")
+    description: Optional[str] = None
+
+class StockThresholdUpdateRequest(BaseModel):
+    stock_threshold: float = Field(..., ge=0)
+
+class StockLogResponse(BaseModel):
+    ulid: str
+    quantity_change: float
+    previous_stock: float
+    new_stock: float
+    description: Optional[str] = None
+    created_at: datetime
+
+    model_config = {"from_attributes": True}

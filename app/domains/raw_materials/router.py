@@ -9,8 +9,8 @@ from app.core.logging_route import AuditLogRoute
 from app.core.database import get_db
 from app.core.security import get_current_user
 from app.domains.users.models import User
-from app.domains.raw_materials.models import RawMaterial, RawMaterialCategory
-from app.domains.raw_materials.schemas import RawMaterialCreate, RawMaterialUpdate, RawMaterialResponse, PaginatedRawMaterials
+from app.domains.raw_materials.models import RawMaterial, RawMaterialCategory, RawMaterialStockLog
+from app.domains.raw_materials.schemas import RawMaterialCreate, RawMaterialUpdate, RawMaterialResponse, PaginatedRawMaterials, StockAdjustmentRequest, StockThresholdUpdateRequest, StockLogResponse
 
 router = APIRouter(route_class=AuditLogRoute)
 
@@ -151,3 +151,89 @@ async def update_raw_material_macros(
     await db.commit()
     await db.refresh(material)
     return material
+
+@router.post("/{ulid}/stock", response_model=RawMaterialResponse)
+async def adjust_raw_material_stock(
+    ulid: str,
+    adjustment: StockAdjustmentRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Add or remove stock and log the transaction."""
+    result = await db.execute(select(RawMaterial).where(RawMaterial.ulid == ulid))
+    material = result.scalars().first()
+    
+    if not material:
+        raise HTTPException(status_code=404, detail="Raw material not found")
+
+    previous_stock = material.current_stock
+    new_stock = float(previous_stock) + adjustment.quantity_change
+    
+    if new_stock < 0:
+        raise HTTPException(status_code=400, detail="Stock cannot be negative.")
+
+    material.current_stock = new_stock
+    
+    log_entry = RawMaterialStockLog(
+        raw_material_id=material.id,
+        quantity_change=adjustment.quantity_change,
+        previous_stock=previous_stock,
+        new_stock=new_stock,
+        description=adjustment.description,
+        created_by_id=current_user.id
+    )
+    db.add(log_entry)
+    
+    await db.commit()
+    await db.refresh(material)
+    
+    # Reload with category for response
+    res = await db.execute(select(RawMaterial).options(selectinload(RawMaterial.category)).where(RawMaterial.id == material.id))
+    return res.scalars().first()
+
+
+@router.patch("/{ulid}/stock-threshold", response_model=RawMaterialResponse)
+async def update_stock_threshold(
+    ulid: str,
+    threshold_data: StockThresholdUpdateRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Update stock threshold."""
+    result = await db.execute(select(RawMaterial).where(RawMaterial.ulid == ulid))
+    material = result.scalars().first()
+    
+    if not material:
+        raise HTTPException(status_code=404, detail="Raw material not found")
+
+    material.stock_threshold = threshold_data.stock_threshold
+    
+    await db.commit()
+    await db.refresh(material)
+    
+    # Reload with category for response
+    res = await db.execute(select(RawMaterial).options(selectinload(RawMaterial.category)).where(RawMaterial.id == material.id))
+    return res.scalars().first()
+
+
+@router.get("/{ulid}/stock-logs", response_model=list[StockLogResponse])
+async def get_raw_material_stock_logs(
+    ulid: str,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Get stock transaction history for a raw material."""
+    result = await db.execute(select(RawMaterial).where(RawMaterial.ulid == ulid))
+    material = result.scalars().first()
+    
+    if not material:
+        raise HTTPException(status_code=404, detail="Raw material not found")
+
+    logs_result = await db.execute(
+        select(RawMaterialStockLog)
+        .where(RawMaterialStockLog.raw_material_id == material.id)
+        .order_by(RawMaterialStockLog.created_at.desc())
+    )
+    logs = logs_result.scalars().all()
+    
+    return logs
