@@ -160,7 +160,10 @@ async def update_raw_material_macros(
 
     await db.commit()
     await db.refresh(material)
-    return material
+    
+    # Reload with category for response
+    res = await db.execute(select(RawMaterial).options(selectinload(RawMaterial.category)).where(RawMaterial.id == material.id))
+    return res.scalars().first()
 
 @router.post("/{ulid}/stock", response_model=RawMaterialResponse)
 async def adjust_raw_material_stock(
