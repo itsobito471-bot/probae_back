@@ -61,7 +61,8 @@ async def create_ingredient(
         # Math
         fraction = rm_input.weight_g_or_ml / 100.0
         base_unit_weight = get_base_unit_weight(raw.unit)
-        price_contribution = (float(raw.price) / base_unit_weight) * rm_input.weight_g_or_ml
+        effective_price = float(raw.actual_price if raw.actual_price is not None else (raw.standard_price if raw.standard_price is not None else raw.price))
+        price_contribution = (effective_price / base_unit_weight) * rm_input.weight_g_or_ml
 
         new_ingredient.total_weight += rm_input.weight_g_or_ml
         new_ingredient.total_price += price_contribution
@@ -199,7 +200,8 @@ async def update_ingredient(
 
             fraction = rm_input.weight_g_or_ml / 100.0
             base_unit_weight = get_base_unit_weight(raw.unit)
-            price_contribution = (float(raw.price) / base_unit_weight) * rm_input.weight_g_or_ml
+            effective_price = float(raw.actual_price if raw.actual_price is not None else (raw.standard_price if raw.standard_price is not None else raw.price))
+            price_contribution = (effective_price / base_unit_weight) * rm_input.weight_g_or_ml
 
             ingredient.total_weight += rm_input.weight_g_or_ml
             ingredient.total_price += price_contribution
