@@ -101,7 +101,7 @@ async def create_packaging(
     if existing:
         raise HTTPException(status_code=400, detail="Packaging bundle with this name already exists")
         
-    pack = Packaging(name=payload.name, total_cost=0)
+    pack = Packaging(name=payload.name, code=payload.code, total_cost=0)
     db.add(pack)
     await db.flush()
     
@@ -179,6 +179,8 @@ async def update_packaging(
             raise HTTPException(status_code=400, detail="Packaging bundle with this name already exists")
         pack.name = payload.name
         
+    if payload.code is not None:
+        pack.code = payload.code
     if payload.components is not None:
         await db.execute(PackagingItemLink.__table__.delete().where(PackagingItemLink.packaging_id == pack.id))
         

@@ -15,6 +15,7 @@ class PackagingComponentUpdate(BaseModel):
     cost: Optional[float] = None
 
 class PackagingComponentResponse(PackagingComponentBase):
+    id: int
     ulid: str
     created_at: datetime
     updated_at: datetime
@@ -42,15 +43,18 @@ class PackagingItemLinkResponse(BaseModel):
 # Packaging Schemas
 class PackagingBase(BaseModel):
     name: str
+    code: Optional[str] = None
 
 class PackagingCreate(PackagingBase):
     components: List[PackagingItemLinkInput] = []
 
 class PackagingUpdate(BaseModel):
     name: Optional[str] = None
+    code: Optional[str] = None
     components: Optional[List[PackagingItemLinkInput]] = None
 
 class PackagingResponse(PackagingBase):
+    id: int
     ulid: str
     total_cost: float
     components: List[PackagingItemLinkResponse] = []

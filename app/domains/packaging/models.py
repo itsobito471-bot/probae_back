@@ -20,6 +20,7 @@ class Packaging(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
     ulid: Mapped[str] = mapped_column(String(26), default=generate_ulid, unique=True, index=True, nullable=False)
+    code: Mapped[str] = mapped_column(String(50), unique=True, index=True, nullable=True)
     name: Mapped[str] = mapped_column(String(255), unique=True, index=True, nullable=False)
     total_cost: Mapped[float] = mapped_column(Numeric(10, 2), default=0.0, nullable=False)
     
