@@ -12,6 +12,10 @@ from app.domains.raw_materials.router import router as raw_materials_router
 from app.domains.raw_materials.category_router import router as raw_materials_category_router
 from app.domains.ingredients.router import router as ingredients_router
 from app.domains.bowls.router import router as bowls_router
+from app.domains.bowls.meal_category_router import router as meal_category_router
+from app.domains.packaging.router import router as packaging_router
+from app.domains.bowls.bowl_router import router as bowl_main_router
+from app.domains.vendors.router import router as vendors_router
 
 app = FastAPI(
     title=settings.app_name,
@@ -22,7 +26,7 @@ app = FastAPI(
 app.add_middleware(
     CORSMiddleware,
     # Allow your Next.js frontend origin
-    allow_origins=["http://localhost:3000"], 
+    allow_origins=["http://localhost:3000","http://localhost:3001"], 
     
     # CRITICAL: Must be True so the frontend can receive the HttpOnly Refresh Token Cookie!
     allow_credentials=True, 
@@ -45,6 +49,10 @@ app.include_router(raw_materials_category_router, prefix="/api/v1/raw-material-c
 app.include_router(raw_materials_router, prefix="/api/v1/raw-materials", tags=["Raw Materials"])
 app.include_router(ingredients_router, prefix="/api/v1/ingredients", tags=["Ingredients"])
 app.include_router(bowls_router, prefix="/api/v1/bowl-categories", tags=["Bowl Categories"])
+app.include_router(meal_category_router, prefix="/api/v1/meal-categories", tags=["Meal Categories"])
+app.include_router(packaging_router, prefix="/api/v1/packaging", tags=["Packaging"])
+app.include_router(bowl_main_router, prefix="/api/v1/bowls", tags=["Bowls"])
+app.include_router(vendors_router, prefix="/api/v1/vendors", tags=["Vendors"])
 
 @app.get("/")
 async def root():

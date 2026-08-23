@@ -35,3 +35,13 @@ for migrations use
 alembic revision --autogenerate -m "Initial schema setup"
 for upgrade use 
 alembic upgrade head
+
+## Seeding the Database
+
+To populate the database with initial master data (such as the default Admin user and the Meal Categories: Breakfast, Lunch, Dinner, Snack, Drinks), you can run the master seed script:
+
+```bash
+python seed.py
+```
+
+This script will safely insert the default records. If they already exist, it will skip them or update them with the default configuration without creating duplicates.

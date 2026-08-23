@@ -10,7 +10,8 @@ from app.core.database import get_db
 from app.core.security import get_current_user
 from app.domains.users.models import User
 from app.domains.raw_materials.models import RawMaterial, RawMaterialCategory, RawMaterialStockLog
-from app.domains.raw_materials.schemas import RawMaterialCreate, RawMaterialUpdate, RawMaterialResponse, PaginatedRawMaterials, StockAdjustmentRequest, StockThresholdUpdateRequest, StockLogResponse
+from app.domains.vendors.models import Vendor
+from app.domains.raw_materials.schemas import RawMaterialCreate, RawMaterialUpdate, RawMaterialResponse, PaginatedRawMaterials, StockAdjustmentRequest, StockThresholdUpdateRequest, StockLogResponse, CostLogResponse, PaginatedCostLogs
 
 router = APIRouter(route_class=AuditLogRoute)
 
@@ -34,14 +35,29 @@ async def create_raw_material(
             raise HTTPException(status_code=400, detail="Invalid category ULID.")
         category_id = category.id
 
-    data = material_in.model_dump(exclude={"category_ulid"})
-    new_material = RawMaterial(**data, category_id=category_id)
+    # Resolve vendor_ulid to vendor_id
+    vendor_id = None
+    if material_in.vendor_ulid:
+        vendor_result = await db.execute(select(Vendor).where(Vendor.ulid == material_in.vendor_ulid))
+        vendor = vendor_result.scalars().first()
+        if not vendor:
+            raise HTTPException(status_code=400, detail="Invalid vendor ULID.")
+        vendor_id = vendor.id
+
+    data = material_in.model_dump(exclude={"category_ulid", "vendor_ulid"})
+    
+    # Initialize previous_price to standard_price if not provided
+    if "standard_price" in data and data["standard_price"] is not None:
+        if "previous_price" not in data or data["previous_price"] is None:
+            data["previous_price"] = data["standard_price"]
+
+    new_material = RawMaterial(**data, category_id=category_id, vendor_id=vendor_id)
     db.add(new_material)
     await db.commit()
     await db.refresh(new_material)
     
     # Reload with relationships
-    result = await db.execute(select(RawMaterial).options(selectinload(RawMaterial.category)).where(RawMaterial.id == new_material.id))
+    result = await db.execute(select(RawMaterial).options(selectinload(RawMaterial.category), selectinload(RawMaterial.vendor)).where(RawMaterial.id == new_material.id))
     return result.scalars().first()
 
 @router.get("/", response_model=PaginatedRawMaterials)
@@ -52,7 +68,7 @@ async def get_raw_materials(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    query = select(RawMaterial).options(selectinload(RawMaterial.category))
+    query = select(RawMaterial).options(selectinload(RawMaterial.category), selectinload(RawMaterial.vendor))
     
     if search:
         query = query.where(RawMaterial.name.ilike(f"%{search}%"))
@@ -81,7 +97,7 @@ async def get_low_stock_count(
 
 @router.get("/{ulid}", response_model=RawMaterialResponse)
 async def get_raw_material(ulid: str, current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(RawMaterial).options(selectinload(RawMaterial.category)).where(RawMaterial.ulid == ulid))
+    result = await db.execute(select(RawMaterial).options(selectinload(RawMaterial.category), selectinload(RawMaterial.vendor)).where(RawMaterial.ulid == ulid))
     material = result.scalars().first()
     if not material:
         raise HTTPException(status_code=404, detail="Raw material not found")
@@ -110,15 +126,64 @@ async def update_raw_material(
             update_data["category_id"] = category.id
         else:
             update_data["category_id"] = None
+            
+    if "vendor_ulid" in update_data:
+        vendor_ulid = update_data.pop("vendor_ulid")
+        if vendor_ulid:
+            vendor_result = await db.execute(select(Vendor).where(Vendor.ulid == vendor_ulid))
+            vendor = vendor_result.scalars().first()
+            if not vendor:
+                raise HTTPException(status_code=400, detail="Invalid vendor ULID.")
+            update_data["vendor_id"] = vendor.id
+        else:
+            update_data["vendor_id"] = None
+
+    # Track changes for Cost Log
+    cost_fields = ['standard_price', 'actual_price', 'yield_grams']
+    cost_changed = any(k in update_data and update_data[k] != getattr(material, k) for k in cost_fields)
+    
+    if cost_changed:
+        from app.domains.raw_materials.models import RawMaterialCostLog
+
+        log_entry = RawMaterialCostLog(
+            raw_material_id=material.id,
+            previous_standard_price=material.standard_price,
+            new_standard_price=update_data.get(
+                'standard_price',
+                material.standard_price
+            ),
+            previous_actual_price=material.actual_price,
+            new_actual_price=update_data.get(
+                'actual_price',
+                material.actual_price
+            ),
+            previous_yield_grams=material.yield_grams,
+            new_yield_grams=update_data.get(
+                'yield_grams',
+                material.yield_grams
+            ),
+            created_by_id=current_user.id
+        )
+
+        db.add(log_entry)
+
+        print("Before cost log flush")
+        await db.flush()
+        print("Cost log flush successful")
+
 
     for key, value in update_data.items():
         setattr(material, key, value)
+
+    print("Before raw material flush")
+    await db.flush()
+    print("Raw material flush successful")
 
     await db.commit()
     await db.refresh(material)
     
     # Reload with relationships
-    res = await db.execute(select(RawMaterial).options(selectinload(RawMaterial.category)).where(RawMaterial.id == material.id))
+    res = await db.execute(select(RawMaterial).options(selectinload(RawMaterial.category), selectinload(RawMaterial.vendor)).where(RawMaterial.id == material.id))
     return res.scalars().first()
 
 @router.delete("/{ulid}", status_code=status.HTTP_204_NO_CONTENT)
@@ -251,3 +316,43 @@ async def get_raw_material_stock_logs(
     logs = logs_result.scalars().all()
     
     return logs
+
+
+@router.get("/{ulid}/cost-logs", response_model=PaginatedCostLogs)
+async def get_raw_material_cost_logs(
+    ulid: str,
+    page: int = Query(1, ge=1),
+    size: int = Query(20, ge=1, le=100),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Get cost transaction history for a raw material."""
+    result = await db.execute(select(RawMaterial).where(RawMaterial.ulid == ulid))
+    material = result.scalars().first()
+    
+    if not material:
+        raise HTTPException(status_code=404, detail="Raw material not found")
+
+    from app.domains.raw_materials.models import RawMaterialCostLog
+    
+    query = select(RawMaterialCostLog).where(RawMaterialCostLog.raw_material_id == material.id)
+    
+    count_query = select(func.count()).select_from(query.subquery())
+    total_result = await db.execute(count_query)
+    total = total_result.scalar()
+    
+    logs_result = await db.execute(
+        query
+        .options(selectinload(RawMaterialCostLog.created_by))
+        .order_by(RawMaterialCostLog.created_at.desc())
+        .offset((page - 1) * size)
+        .limit(size)
+    )
+    logs = logs_result.scalars().all()
+    
+    return {
+        "items": logs,
+        "total": total,
+        "page": page,
+        "size": size
+    }

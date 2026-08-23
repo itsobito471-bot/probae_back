@@ -6,6 +6,7 @@ from app.core.database import engine, Base, AsyncSessionLocal
 
 # Domain Seeder Imports
 from app.domains.users.seed import seed_users
+from app.domains.bowls.seed import seed_meal_categories
 # from app.domains.inventory.seed import seed_inventory  <-- You will uncomment this later!
 
 async def run_all_seeds():
@@ -19,6 +20,9 @@ async def run_all_seeds():
         try:
             # 1. Run User Domain Seeds
             await seed_users(db)
+            
+            # 2. Run Meal Category Seeds
+            await seed_meal_categories(db)
             
             # 2. Run Inventory Domain Seeds (Once we build it)
             # await seed_inventory(db)

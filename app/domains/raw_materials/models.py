@@ -4,7 +4,7 @@ from sqlalchemy import String, Text, Numeric, Enum, DateTime, ForeignKey, JSON
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.core.database import Base, generate_ulid
 
-class UnitType(str, enum.Enum):
+class UnitType(enum.Enum):
     KG = "kg"
     L = "l"
     G = "g"
@@ -29,11 +29,22 @@ class RawMaterial(Base):
     item_code: Mapped[str] = mapped_column(String(50), unique=True, index=True, nullable=True)
     name: Mapped[str] = mapped_column(String(255), unique=True, index=True, nullable=False)
     description: Mapped[str] = mapped_column(Text, nullable=True)
-    price: Mapped[float] = mapped_column(Numeric(10, 2), nullable=False)
+    
+    # --- Cost Management ---
+    price: Mapped[float] = mapped_column(Numeric(10, 2), nullable=False) # Legacy field, kept for backwards compatibility if needed, or we can just keep it.
+    standard_price: Mapped[float] = mapped_column(Numeric(10, 2), nullable=True)
+    actual_price: Mapped[float] = mapped_column(Numeric(10, 2), nullable=True)
+    yield_grams: Mapped[float] = mapped_column(Numeric(10, 2), nullable=True)
+    yield_percentage: Mapped[float] = mapped_column(Numeric(5, 2), nullable=True)
+    previous_price: Mapped[float] = mapped_column(Numeric(10, 2), nullable=True)
+    
     unit: Mapped[UnitType] = mapped_column(Enum(UnitType), nullable=False)
     
     category_id: Mapped[int] = mapped_column(ForeignKey("raw_material_categories.id", ondelete="SET NULL"), nullable=True)
     category = relationship("RawMaterialCategory")
+    
+    vendor_id: Mapped[int] = mapped_column(ForeignKey("vendors.id", ondelete="SET NULL"), nullable=True)
+    vendor = relationship("Vendor")
     
     # --- Images ---
     image_filename: Mapped[str] = mapped_column(String(255), nullable=True) # Primary/Thumbnail
@@ -58,6 +69,27 @@ class RawMaterial(Base):
     
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+
+
+class RawMaterialCostLog(Base):
+    __tablename__ = "raw_material_cost_logs"
+
+    id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    ulid: Mapped[str] = mapped_column(String(26), default=generate_ulid, unique=True, index=True, nullable=False)
+    
+    raw_material_id: Mapped[int] = mapped_column(ForeignKey("raw_materials.id", ondelete="CASCADE"), nullable=False, index=True)
+    raw_material = relationship("RawMaterial")
+    
+    previous_standard_price: Mapped[float] = mapped_column(Numeric(10, 2), nullable=True)
+    new_standard_price: Mapped[float] = mapped_column(Numeric(10, 2), nullable=True)
+    previous_actual_price: Mapped[float] = mapped_column(Numeric(10, 2), nullable=True)
+    new_actual_price: Mapped[float] = mapped_column(Numeric(10, 2), nullable=True)
+    previous_yield_grams: Mapped[float] = mapped_column(Numeric(10, 2), nullable=True)
+    new_yield_grams: Mapped[float] = mapped_column(Numeric(10, 2), nullable=True)
+    
+    created_by_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    created_by = relationship("User")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
 class RawMaterialStockLog(Base):
     __tablename__ = "raw_material_stock_logs"
