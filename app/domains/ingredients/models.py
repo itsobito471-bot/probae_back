@@ -2,9 +2,9 @@ import enum
 from datetime import datetime, timezone
 from sqlalchemy import String, Text, Numeric, Enum, DateTime, ForeignKey, Integer
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-from app.core.database import Base, generate_ulid
+from app.core.database import Base, TimestampMixin, generate_ulid
 
-class Ingredient(Base):
+class Ingredient(Base, TimestampMixin):
     __tablename__ = "ingredients"
 
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
@@ -29,8 +29,6 @@ class Ingredient(Base):
     # --- Audit & Relations ---
     created_by_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=True)
     
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
-    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
     # Relationships
     raw_materials: Mapped[list["IngredientRawMaterial"]] = relationship("IngredientRawMaterial", back_populates="ingredient", cascade="all, delete-orphan")

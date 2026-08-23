@@ -2,7 +2,7 @@ import enum
 from sqlalchemy import String, Text, ForeignKey, Integer, DateTime, Time, Boolean, Numeric, Enum
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from datetime import datetime, timezone, time
-from app.core.database import Base, generate_ulid
+from app.core.database import Base, TimestampMixin, generate_ulid
 
 class BowlType(str, enum.Enum):
     STANDARD = "STANDARD"
@@ -17,7 +17,7 @@ class BowlSection(str, enum.Enum):
     FIBER = "Fiber"
     EXTRA_PROTEIN = "Extra Protein"
 
-class BowlCategory(Base):
+class BowlCategory(Base, TimestampMixin):
     __tablename__ = "bowl_categories"
 
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
@@ -29,13 +29,11 @@ class BowlCategory(Base):
     image_filename: Mapped[str] = mapped_column(String(255), nullable=True)
     background_image_filename: Mapped[str] = mapped_column(String(255), nullable=True)
 
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
-    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
     bowls: Mapped[list["Bowl"]] = relationship("Bowl", back_populates="category", cascade="all, delete-orphan")
 
 
-class MealCategory(Base):
+class MealCategory(Base, TimestampMixin):
     __tablename__ = "meal_categories"
 
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
@@ -50,13 +48,11 @@ class MealCategory(Base):
     
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
 
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
-    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
     bowls: Mapped[list["Bowl"]] = relationship("Bowl", back_populates="meal_category")
 
 
-class Bowl(Base):
+class Bowl(Base, TimestampMixin):
     __tablename__ = "bowls"
 
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
@@ -76,8 +72,6 @@ class Bowl(Base):
     category_id: Mapped[int] = mapped_column(ForeignKey("bowl_categories.id", ondelete="CASCADE"), nullable=False, index=True)
     meal_category_id: Mapped[int] = mapped_column(ForeignKey("meal_categories.id", ondelete="SET NULL"), nullable=True, index=True)
     
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
-    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
     category: Mapped["BowlCategory"] = relationship("BowlCategory", back_populates="bowls")
     meal_category: Mapped["MealCategory"] = relationship("MealCategory", back_populates="bowls")

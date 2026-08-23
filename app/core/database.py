@@ -27,8 +27,17 @@ redis_client = aioredis.from_url(settings.redis_url, decode_responses=True)
 
 # 3. Create the declarative base for your models
 class Base(DeclarativeBase):
-
     pass
+
+from datetime import datetime, timezone
+from sqlalchemy import DateTime
+from sqlalchemy.orm import Mapped, mapped_column
+
+class TimestampMixin:
+    """Mixin to add created_at and updated_at columns to models."""
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+
 
 async def get_redis():
     yield redis_client

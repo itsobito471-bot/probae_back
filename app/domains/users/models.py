@@ -2,7 +2,7 @@ import enum
 from datetime import datetime, timezone
 from sqlalchemy import ForeignKey, String, Boolean, DateTime, Enum
 from sqlalchemy.orm import Mapped, mapped_column
-from app.core.database import Base, generate_ulid
+from app.core.database import Base, TimestampMixin, generate_ulid
 from sqlalchemy.orm import relationship
 
 class UserRole(str, enum.Enum):
@@ -10,7 +10,7 @@ class UserRole(str, enum.Enum):
     CUSTOMER = "customer"
     DELIVERY = "delivery"
 
-class User(Base):
+class User(Base, TimestampMixin):
     __tablename__ = "users"
 
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
@@ -36,8 +36,6 @@ class User(Base):
     # This relationship lets SQLAlchemy fetch the Document object automatically
     profile_picture = relationship("Document", lazy="joined")
     # Timestamps
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
-    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
     def __repr__(self):
         return f"<User {self.email} - {self.role}>"

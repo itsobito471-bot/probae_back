@@ -2,7 +2,7 @@ import enum
 from datetime import datetime, timezone
 from sqlalchemy import String, Text, Numeric, Enum, DateTime, ForeignKey, JSON
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-from app.core.database import Base, generate_ulid
+from app.core.database import Base, TimestampMixin, generate_ulid
 
 class UnitType(enum.Enum):
     KG = "kg"
@@ -10,7 +10,7 @@ class UnitType(enum.Enum):
     G = "g"
     ML = "ml"
 
-class RawMaterialCategory(Base):
+class RawMaterialCategory(Base, TimestampMixin):
     __tablename__ = "raw_material_categories"
 
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
@@ -18,10 +18,8 @@ class RawMaterialCategory(Base):
     name: Mapped[str] = mapped_column(String(255), unique=True, index=True, nullable=False)
     description: Mapped[str] = mapped_column(Text, nullable=True)
     
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
-    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
-class RawMaterial(Base):
+class RawMaterial(Base, TimestampMixin):
     __tablename__ = "raw_materials"
 
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
@@ -67,11 +65,9 @@ class RawMaterial(Base):
     # --- Audit & Relations ---
     created_by_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=True)
     
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
-    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
 
-class RawMaterialCostLog(Base):
+class RawMaterialCostLog(Base, TimestampMixin):
     __tablename__ = "raw_material_cost_logs"
 
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
@@ -89,9 +85,8 @@ class RawMaterialCostLog(Base):
     
     created_by_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     created_by = relationship("User")
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
-class RawMaterialStockLog(Base):
+class RawMaterialStockLog(Base, TimestampMixin):
     __tablename__ = "raw_material_stock_logs"
 
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
@@ -107,4 +102,3 @@ class RawMaterialStockLog(Base):
     description: Mapped[str] = mapped_column(Text, nullable=True)
     created_by_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     created_by = relationship("User")
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))

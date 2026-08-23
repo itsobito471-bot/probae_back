@@ -2,9 +2,9 @@
 from datetime import datetime, timezone
 from sqlalchemy import String, Text, Numeric, ForeignKey, DateTime
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-from app.core.database import Base, generate_ulid
+from app.core.database import Base, TimestampMixin, generate_ulid
 
-class PackagingComponent(Base):
+class PackagingComponent(Base, TimestampMixin):
     __tablename__ = "packaging_components"
 
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
@@ -12,10 +12,8 @@ class PackagingComponent(Base):
     name: Mapped[str] = mapped_column(String(255), unique=True, index=True, nullable=False)
     cost: Mapped[float] = mapped_column(Numeric(10, 2), default=0.0, nullable=False)
 
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
-    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
-class Packaging(Base):
+class Packaging(Base, TimestampMixin):
     __tablename__ = "packaging"
 
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
@@ -24,8 +22,6 @@ class Packaging(Base):
     name: Mapped[str] = mapped_column(String(255), unique=True, index=True, nullable=False)
     total_cost: Mapped[float] = mapped_column(Numeric(10, 2), default=0.0, nullable=False)
     
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
-    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
     components: Mapped[list["PackagingItemLink"]] = relationship("PackagingItemLink", back_populates="packaging", cascade="all, delete-orphan")
 
