@@ -446,7 +446,7 @@ async def delete_purchase(
 async def get_daily_purchases(
     date: str, # Format: YYYY-MM-DD
     page: int = Query(1, ge=1),
-    size: int = Query(50, ge=1, le=100),
+    size: int = Query(100, ge=1, le=5000),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
@@ -479,7 +479,7 @@ async def get_daily_purchases(
 async def get_monthly_purchases(
     month: str, # Format: YYYY-MM
     page: int = Query(1, ge=1),
-    size: int = Query(50, ge=1, le=100),
+    size: int = Query(100, ge=1, le=5000),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
