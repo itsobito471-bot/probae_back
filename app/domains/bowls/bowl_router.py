@@ -100,6 +100,7 @@ async def create_bowl(
         select(Bowl)
         .options(
             selectinload(Bowl.ingredients).selectinload(BowlIngredient.ingredient),
+            selectinload(Bowl.meal_category),
             selectinload(Bowl.created_by)
         )
         .where(Bowl.id == new_bowl.id)
@@ -153,6 +154,7 @@ async def list_bowls(
     count_q = select(func.count()).select_from(Bowl)
     query = select(Bowl).options(
         selectinload(Bowl.ingredients).selectinload(BowlIngredient.ingredient),
+        selectinload(Bowl.meal_category),
         selectinload(Bowl.created_by)
     )
     if search:
@@ -200,7 +202,7 @@ async def update_bowl(
 ):
     result = await db.execute(
         select(Bowl)
-        .options(selectinload(Bowl.ingredients).selectinload(BowlIngredient.ingredient))
+        .options(selectinload(Bowl.ingredients).selectinload(BowlIngredient.ingredient), selectinload(Bowl.meal_category))
         .where(Bowl.ulid == ulid)
     )
     bowl = result.scalar_one_or_none()
@@ -298,6 +300,7 @@ async def update_bowl(
         select(Bowl)
         .options(
             selectinload(Bowl.ingredients).selectinload(BowlIngredient.ingredient),
+            selectinload(Bowl.meal_category),
             selectinload(Bowl.created_by)
         )
         .where(Bowl.id == bowl.id)

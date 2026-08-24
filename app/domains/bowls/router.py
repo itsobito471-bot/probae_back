@@ -55,9 +55,8 @@ async def list_bowl_categories(
     db: AsyncSession = Depends(get_db)
 ):
     query = select(BowlCategory).options(
-        selectinload(BowlCategory.bowls)
-        .selectinload(Bowl.ingredients)
-        .selectinload(BowlIngredient.ingredient)
+        selectinload(BowlCategory.bowls).selectinload(Bowl.ingredients).selectinload(BowlIngredient.ingredient),
+        selectinload(BowlCategory.bowls).selectinload(Bowl.meal_category)
     )
 
     if search:
