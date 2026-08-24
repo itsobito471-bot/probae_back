@@ -144,3 +144,40 @@ class PaginatedCostLogs(BaseModel):
     total: int
     page: int
     size: int
+# --- Purchase History Schemas ---
+class PurchaseCreate(BaseModel):
+    purchase_date: datetime
+    raw_material_id: int
+    vendor_id: Optional[int] = None
+    quantity: float
+    unit: UnitType
+    standard_cost: float
+    actual_price: float
+    total_amount: float
+    variance: float
+
+class PurchaseResponse(BaseModel):
+    id: int
+    ulid: str
+    purchase_date: datetime
+    raw_material_id: int
+    vendor_id: Optional[int] = None
+    quantity: float
+    unit: UnitType
+    standard_cost: float
+    actual_price: float
+    total_amount: float
+    variance: float
+    created_at: datetime
+    updated_at: datetime
+    
+    raw_material: Optional['RawMaterialResponse'] = None
+    vendor: Optional[VendorResponse] = None
+
+    model_config = {"from_attributes": True}
+
+class PaginatedPurchases(BaseModel):
+    items: list[PurchaseResponse]
+    total: int
+    page: int
+    size: int

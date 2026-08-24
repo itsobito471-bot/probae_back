@@ -102,3 +102,28 @@ class RawMaterialStockLog(Base, TimestampMixin):
     description: Mapped[str] = mapped_column(Text, nullable=True)
     created_by_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     created_by = relationship("User")
+class RawMaterialPurchase(Base, TimestampMixin):
+    __tablename__ = "raw_material_purchases"
+
+    id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    ulid: Mapped[str] = mapped_column(String(26), default=generate_ulid, unique=True, index=True, nullable=False)
+    
+    purchase_date: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    
+    raw_material_id: Mapped[int] = mapped_column(ForeignKey("raw_materials.id", ondelete="RESTRICT"), nullable=False, index=True)
+    raw_material = relationship("RawMaterial")
+    
+    vendor_id: Mapped[int] = mapped_column(ForeignKey("vendors.id", ondelete="SET NULL"), nullable=True, index=True)
+    vendor = relationship("Vendor")
+    
+    quantity: Mapped[float] = mapped_column(Numeric(10, 2), nullable=False)
+    unit: Mapped[UnitType] = mapped_column(Enum(UnitType), nullable=False)
+    
+    standard_cost: Mapped[float] = mapped_column(Numeric(10, 2), nullable=False)
+    actual_price: Mapped[float] = mapped_column(Numeric(10, 2), nullable=False)
+    
+    total_amount: Mapped[float] = mapped_column(Numeric(10, 2), nullable=False)
+    variance: Mapped[float] = mapped_column(Numeric(10, 2), nullable=False)
+    
+    created_by_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    created_by = relationship("User")

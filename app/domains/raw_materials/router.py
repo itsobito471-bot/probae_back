@@ -2,14 +2,14 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
-from sqlalchemy import func, or_
+from sqlalchemy import func, or_, cast, extract, Date
 from typing import Optional
 
 from app.core.logging_route import AuditLogRoute
 from app.core.database import get_db
 from app.core.security import get_current_user
 from app.domains.users.models import User
-from app.domains.raw_materials.models import RawMaterial, RawMaterialCategory, RawMaterialStockLog
+from app.domains.raw_materials.models import RawMaterial, RawMaterialCategory, RawMaterialPurchase, RawMaterialStockLog
 from app.domains.vendors.models import Vendor
 from app.domains.raw_materials.schemas import RawMaterialCreate, RawMaterialUpdate, RawMaterialResponse, PaginatedRawMaterials, StockAdjustmentRequest, StockThresholdUpdateRequest, StockLogResponse, CostLogResponse, PaginatedCostLogs
 
@@ -356,3 +356,158 @@ async def get_raw_material_cost_logs(
         "page": page,
         "size": size
     }
+
+from app.domains.raw_materials.schemas import PurchaseCreate, PurchaseResponse, PaginatedPurchases
+
+@router.post("/purchases/batch", response_model=list[PurchaseResponse])
+async def create_purchases(
+    purchases_in: list[PurchaseCreate],
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    new_purchases = []
+    rm_ids = [p.raw_material_id for p in purchases_in]
+    res = await db.execute(select(RawMaterial).where(RawMaterial.id.in_(rm_ids)))
+    raw_materials = {rm.id: rm for rm in res.scalars().all()}
+
+    for p_in in purchases_in:
+        rm = raw_materials.get(p_in.raw_material_id)
+        if not rm:
+            raise HTTPException(status_code=404, detail=f"Raw material {p_in.raw_material_id} not found")
+            
+        db_purchase = RawMaterialPurchase(
+            **p_in.model_dump(),
+            created_by_id=current_user.id
+        )
+        db.add(db_purchase)
+        new_purchases.append(db_purchase)
+        
+        # Update stock
+        prev_stock = rm.current_stock
+        rm.current_stock = float(rm.current_stock) + float(p_in.quantity)
+        new_stock = rm.current_stock
+        
+        # Log stock change
+        stock_log = RawMaterialStockLog(
+            raw_material_id=rm.id,
+            quantity_change=p_in.quantity,
+            previous_stock=prev_stock,
+            new_stock=new_stock,
+            description="Purchase Restock",
+            created_by_id=current_user.id
+        )
+        db.add(stock_log)
+    
+    await db.commit()
+    for p in new_purchases:
+        await db.refresh(p)
+    
+    # Need to load relationships for response
+    q = select(RawMaterialPurchase).where(
+        RawMaterialPurchase.id.in_([p.id for p in new_purchases])
+    ).options(
+        selectinload(RawMaterialPurchase.raw_material).selectinload(RawMaterial.category), selectinload(RawMaterialPurchase.raw_material).selectinload(RawMaterial.vendor),
+        selectinload(RawMaterialPurchase.vendor)
+    )
+    res = await db.execute(q)
+    return res.scalars().all()
+
+@router.delete("/purchases/{id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_purchase(
+    id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    purchase = await db.get(RawMaterialPurchase, id)
+    if not purchase:
+        raise HTTPException(status_code=404, detail="Purchase not found")
+        
+    rm = await db.get(RawMaterial, purchase.raw_material_id)
+    if rm:
+        prev_stock = rm.current_stock
+        rm.current_stock = float(rm.current_stock) - float(purchase.quantity)
+        new_stock = rm.current_stock
+        
+        stock_log = RawMaterialStockLog(
+            raw_material_id=rm.id,
+            quantity_change=-float(purchase.quantity),
+            previous_stock=prev_stock,
+            new_stock=new_stock,
+            description="Purchase Record Deleted",
+            created_by_id=current_user.id
+        )
+        db.add(stock_log)
+        
+    await db.delete(purchase)
+    await db.commit()
+
+
+@router.get("/purchases/daily", response_model=PaginatedPurchases)
+async def get_daily_purchases(
+    date: str, # Format: YYYY-MM-DD
+    page: int = Query(1, ge=1),
+    size: int = Query(50, ge=1, le=100),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    from datetime import datetime
+    target_date = datetime.strptime(date, "%Y-%m-%d").date()
+    
+    q = select(RawMaterialPurchase).where(
+        cast(RawMaterialPurchase.purchase_date, Date) == target_date
+    )
+    
+    total_res = await db.execute(select(func.count()).select_from(q.subquery()))
+    total = total_res.scalar_one()
+    
+    q = q.options(
+        selectinload(RawMaterialPurchase.raw_material).selectinload(RawMaterial.category), selectinload(RawMaterialPurchase.raw_material).selectinload(RawMaterial.vendor),
+        selectinload(RawMaterialPurchase.vendor)
+    ).order_by(RawMaterialPurchase.purchase_date.desc()).offset((page - 1) * size).limit(size)
+    
+    res = await db.execute(q)
+    items = res.scalars().all()
+    
+    return PaginatedPurchases(
+        items=items,
+        total=total,
+        page=page,
+        size=size
+    )
+
+@router.get("/purchases/monthly", response_model=PaginatedPurchases)
+async def get_monthly_purchases(
+    month: str, # Format: YYYY-MM
+    page: int = Query(1, ge=1),
+    size: int = Query(50, ge=1, le=100),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    from sqlalchemy import extract
+    
+    year_str, month_str = month.split('-')
+    target_year = int(year_str)
+    target_month = int(month_str)
+    
+    q = select(RawMaterialPurchase).where(
+        extract('year', RawMaterialPurchase.purchase_date) == target_year,
+        extract('month', RawMaterialPurchase.purchase_date) == target_month
+    )
+    
+    total_res = await db.execute(select(func.count()).select_from(q.subquery()))
+    total = total_res.scalar_one()
+    
+    q = q.options(
+        selectinload(RawMaterialPurchase.raw_material).selectinload(RawMaterial.category), selectinload(RawMaterialPurchase.raw_material).selectinload(RawMaterial.vendor),
+        selectinload(RawMaterialPurchase.vendor)
+    ).order_by(RawMaterialPurchase.purchase_date.desc()).offset((page - 1) * size).limit(size)
+    
+    res = await db.execute(q)
+    items = res.scalars().all()
+    
+    return PaginatedPurchases(
+        items=items,
+        total=total,
+        page=page,
+        size=size
+    )
