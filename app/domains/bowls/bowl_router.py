@@ -38,6 +38,12 @@ async def create_bowl(
             raise HTTPException(status_code=404, detail="Packaging not found")
         pack_id = pack.id
         packaging_cost = float(pack.total_cost)
+    elif payload.packaging_id:
+        pack = await db.get(Packaging, payload.packaging_id)
+        if not pack:
+            raise HTTPException(status_code=404, detail="Packaging not found")
+        pack_id = pack.id
+        packaging_cost = float(pack.total_cost)
 
     new_bowl = Bowl(
         name=payload.name,
@@ -49,6 +55,8 @@ async def create_bowl(
         category_id=payload.category_id,
         meal_category_id=payload.meal_category_id,
         packaging_id=pack_id,
+        image_filename=payload.image_filename,
+        created_by_id=current_user.id,
         raw_cost=0.0,
         total_cost=0.0
     )
@@ -57,9 +65,15 @@ async def create_bowl(
 
     raw_cost = 0.0
     for ing_input in payload.ingredients:
-        ingredient = await db.scalar(select(Ingredient).where(Ingredient.ulid == ing_input.ingredient_ulid))
+        ingredient = None
+        if ing_input.ingredient_ulid:
+            ingredient = await db.scalar(select(Ingredient).where(Ingredient.ulid == ing_input.ingredient_ulid))
+        elif ing_input.ingredient_id:
+            ingredient = await db.get(Ingredient, ing_input.ingredient_id)
+            
         if not ingredient:
-            raise HTTPException(status_code=404, detail=f"Ingredient {ing_input.ingredient_ulid} not found")
+            ident = ing_input.ingredient_ulid or ing_input.ingredient_id
+            raise HTTPException(status_code=404, detail=f"Ingredient {ident} not found")
         
         # Math: (Selected Weight / Base Recipe Weight) * Base Value
         base_weight = float(ingredient.total_weight)
@@ -84,13 +98,50 @@ async def create_bowl(
     
     result = await db.execute(
         select(Bowl)
-        .options(selectinload(Bowl.ingredients).selectinload(BowlIngredient.ingredient))
+        .options(
+            selectinload(Bowl.ingredients).selectinload(BowlIngredient.ingredient),
+            selectinload(Bowl.created_by)
+        )
         .where(Bowl.id == new_bowl.id)
     )
     bowl = result.scalar_one()
     
-    # Map ingredients to response format manually if needed, or let Pydantic handle it via aliases
+    _inject_bowl_extras(bowl)
+
     return bowl
+
+def _inject_bowl_extras(bowl: Bowl):
+    total_cal = 0.0
+    total_pro = 0.0
+    total_carb = 0.0
+    total_fat = 0.0
+    total_fib = 0.0
+    total_weight = 0.0
+    for link in bowl.ingredients:
+        link.ingredient_ulid = link.ingredient.ulid
+        link.ingredient_name = link.ingredient.name
+        
+        base_weight = float(link.ingredient.total_weight)
+        if base_weight > 0 and link.weight_g_or_ml > 0:
+            ratio = float(link.weight_g_or_ml) / base_weight
+            total_cal += float(link.ingredient.total_calories) * ratio
+            total_pro += float(link.ingredient.total_protein) * ratio
+            total_carb += float(link.ingredient.total_carbs) * ratio
+            total_fat += float(link.ingredient.total_fat) * ratio
+            total_fib += float(link.ingredient.total_fiber) * ratio
+            total_weight += float(link.weight_g_or_ml)
+            
+    bowl.total_calories = round(total_cal, 2)
+    bowl.total_protein = round(total_pro, 2)
+    bowl.total_carbs = round(total_carb, 2)
+    bowl.total_fat = round(total_fat, 2)
+    bowl.total_fiber = round(total_fib, 2)
+    bowl.total_weight = round(total_weight, 2)
+    
+    if bowl.created_by:
+        bowl.created_by_name = f"{bowl.created_by.first_name} {bowl.created_by.last_name}".strip()
+    else:
+        bowl.created_by_name = "Admin"
 
 @router.get("", response_model=PaginatedBowls)
 async def list_bowls(
@@ -99,15 +150,24 @@ async def list_bowls(
     search: Optional[str] = Query(None),
     db: AsyncSession = Depends(get_db)
 ):
-    query = select(Bowl)
+    count_q = select(func.count()).select_from(Bowl)
+    query = select(Bowl).options(
+        selectinload(Bowl.ingredients).selectinload(BowlIngredient.ingredient),
+        selectinload(Bowl.created_by)
+    )
     if search:
         query = query.where(Bowl.name.ilike(f"%{search}%"))
+        count_q = count_q.where(Bowl.name.ilike(f"%{search}%"))
         
-    total = await db.scalar(select(func.count()).select_from(query.subquery()))
+    total = await db.scalar(count_q)
     query = query.order_by(Bowl.id.desc()).offset((page - 1) * page_size).limit(page_size)
     
     result = await db.execute(query)
     items = result.scalars().all()
+    
+    for bowl in items:
+        _inject_bowl_extras(bowl)
+    
     pages = math.ceil(total / page_size) if total else 0
     
     return {"items": items, "total": total, "page": page, "page_size": page_size, "total_pages": pages}
@@ -116,17 +176,18 @@ async def list_bowls(
 async def get_bowl(ulid: str, db: AsyncSession = Depends(get_db)):
     result = await db.execute(
         select(Bowl)
-        .options(selectinload(Bowl.ingredients).selectinload(BowlIngredient.ingredient))
+        .options(
+            selectinload(Bowl.ingredients).selectinload(BowlIngredient.ingredient),
+            selectinload(Bowl.meal_category),
+            selectinload(Bowl.created_by)
+        )
         .where(Bowl.ulid == ulid)
     )
     bowl = result.scalar_one_or_none()
     if not bowl:
         raise HTTPException(status_code=404, detail="Bowl not found")
         
-    # Inject ingredient details for response mapping
-    for link in bowl.ingredients:
-        link.ingredient_ulid = link.ingredient.ulid
-        link.ingredient_name = link.ingredient.name
+    _inject_bowl_extras(bowl)
         
     return bowl
 
@@ -152,7 +213,9 @@ async def update_bowl(
             raise HTTPException(status_code=400, detail="Bowl with this name already exists")
         bowl.name = payload.name
         
-    if payload.code is not None:
+    provided_fields = payload.model_dump(exclude_unset=True)
+    
+    if "code" in provided_fields:
         bowl.code = payload.code
     if payload.description is not None:
         bowl.description = payload.description
@@ -164,15 +227,27 @@ async def update_bowl(
         bowl.fixed_cost = payload.fixed_cost
     if payload.category_id is not None:
         bowl.category_id = payload.category_id
-    if payload.meal_category_id is not None:
+    if "meal_category_id" in provided_fields:
         bowl.meal_category_id = payload.meal_category_id
+    if payload.image_filename is not None:
+        bowl.image_filename = payload.image_filename
 
     packaging_cost = 0.0
-    if payload.packaging_ulid is not None:
-        if payload.packaging_ulid == "":
+    
+    if "packaging_ulid" in provided_fields:
+        if not payload.packaging_ulid:
             bowl.packaging_id = None
         else:
             pack = await db.scalar(select(Packaging).where(Packaging.ulid == payload.packaging_ulid))
+            if not pack:
+                raise HTTPException(status_code=404, detail="Packaging not found")
+            bowl.packaging_id = pack.id
+            packaging_cost = float(pack.total_cost)
+    elif "packaging_id" in provided_fields:
+        if not payload.packaging_id:
+            bowl.packaging_id = None
+        else:
+            pack = await db.get(Packaging, payload.packaging_id)
             if not pack:
                 raise HTTPException(status_code=404, detail="Packaging not found")
             bowl.packaging_id = pack.id
@@ -189,9 +264,15 @@ async def update_bowl(
         
         raw_cost = 0.0
         for ing_input in payload.ingredients:
-            ingredient = await db.scalar(select(Ingredient).where(Ingredient.ulid == ing_input.ingredient_ulid))
+            ingredient = None
+            if ing_input.ingredient_ulid:
+                ingredient = await db.scalar(select(Ingredient).where(Ingredient.ulid == ing_input.ingredient_ulid))
+            elif ing_input.ingredient_id:
+                ingredient = await db.get(Ingredient, ing_input.ingredient_id)
+                
             if not ingredient:
-                raise HTTPException(status_code=404, detail=f"Ingredient {ing_input.ingredient_ulid} not found")
+                ident = ing_input.ingredient_ulid or ing_input.ingredient_id
+                raise HTTPException(status_code=404, detail=f"Ingredient {ident} not found")
             
             base_weight = float(ingredient.total_weight)
             base_price = float(ingredient.total_price)
@@ -215,13 +296,14 @@ async def update_bowl(
     
     result = await db.execute(
         select(Bowl)
-        .options(selectinload(Bowl.ingredients).selectinload(BowlIngredient.ingredient))
+        .options(
+            selectinload(Bowl.ingredients).selectinload(BowlIngredient.ingredient),
+            selectinload(Bowl.created_by)
+        )
         .where(Bowl.id == bowl.id)
     )
     updated_bowl = result.scalar_one()
     
-    for link in updated_bowl.ingredients:
-        link.ingredient_ulid = link.ingredient.ulid
-        link.ingredient_name = link.ingredient.name
+    _inject_bowl_extras(updated_bowl)
         
     return updated_bowl

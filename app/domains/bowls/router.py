@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.core.database import get_db
-from app.domains.bowls.models import BowlCategory, Bowl
+from app.domains.bowls.models import BowlCategory, Bowl, BowlIngredient
 from app.domains.bowls.schemas import (
     BowlCategoryCreate,
     BowlCategoryUpdate,
@@ -54,7 +54,11 @@ async def list_bowl_categories(
     sort_order: str = Query("asc"),
     db: AsyncSession = Depends(get_db)
 ):
-    query = select(BowlCategory).options(selectinload(BowlCategory.bowls))
+    query = select(BowlCategory).options(
+        selectinload(BowlCategory.bowls)
+        .selectinload(Bowl.ingredients)
+        .selectinload(BowlIngredient.ingredient)
+    )
 
     if search:
         search_term = f"%{search}%"
@@ -91,6 +95,13 @@ async def list_bowl_categories(
     result = await db.execute(query)
     categories = result.scalars().all()
 
+    # Inject ingredient details for response serialization
+    for cat in categories:
+        for bowl in cat.bowls:
+            for link in bowl.ingredients:
+                link.ingredient_ulid = link.ingredient.ulid
+                link.ingredient_name = link.ingredient.name
+
     total_pages = math.ceil(total / page_size) if total > 0 else 1
 
     return PaginatedBowlCategories(
@@ -105,12 +116,22 @@ async def list_bowl_categories(
 async def get_bowl_category(ulid: str, db: AsyncSession = Depends(get_db)):
     result = await db.execute(
         select(BowlCategory)
-        .options(selectinload(BowlCategory.bowls))
+        .options(
+            selectinload(BowlCategory.bowls)
+            .selectinload(Bowl.ingredients)
+            .selectinload(BowlIngredient.ingredient)
+        )
         .filter(BowlCategory.ulid == ulid)
     )
     category = result.scalar_one_or_none()
     if not category:
         raise HTTPException(status_code=404, detail="Bowl Category not found")
+    
+    for bowl in category.bowls:
+        for link in bowl.ingredients:
+            link.ingredient_ulid = link.ingredient.ulid
+            link.ingredient_name = link.ingredient.name
+    
     return category
 
 @router.put("/{ulid}", response_model=BowlCategoryResponse)

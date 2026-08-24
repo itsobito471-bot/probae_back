@@ -5,8 +5,8 @@ from datetime import datetime, timezone, time
 from app.core.database import Base, TimestampMixin, generate_ulid
 
 class BowlType(str, enum.Enum):
-    STANDARD = "STANDARD"
-    CUSTOM = "CUSTOM"
+    BLOCK = "BLOCK"
+    BLEND = "BLEND"
 
 class BowlSection(str, enum.Enum):
     DRESSING = "Dressing"
@@ -25,6 +25,7 @@ class BowlCategory(Base, TimestampMixin):
     code: Mapped[str] = mapped_column(String(50), unique=True, index=True, nullable=True)
     name: Mapped[str] = mapped_column(String(255), unique=True, index=True, nullable=False)
     description: Mapped[str] = mapped_column(Text, nullable=True)
+    image_filename: Mapped[str] = mapped_column(String(255), nullable=True)
     
     image_filename: Mapped[str] = mapped_column(String(255), nullable=True)
     background_image_filename: Mapped[str] = mapped_column(String(255), nullable=True)
@@ -60,8 +61,9 @@ class Bowl(Base, TimestampMixin):
     code: Mapped[str] = mapped_column(String(50), unique=True, index=True, nullable=True)
     name: Mapped[str] = mapped_column(String(255), index=True, nullable=False)
     description: Mapped[str] = mapped_column(Text, nullable=True)
+    image_filename: Mapped[str] = mapped_column(String(255), nullable=True)
     
-    bowl_type: Mapped[BowlType] = mapped_column(Enum(BowlType), default=BowlType.STANDARD, nullable=False)
+    bowl_type: Mapped[BowlType] = mapped_column(Enum(BowlType), default=BowlType.BLEND, nullable=False)
     status: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     
     raw_cost: Mapped[float] = mapped_column(Numeric(10, 2), default=0.0, nullable=False)
@@ -71,10 +73,11 @@ class Bowl(Base, TimestampMixin):
     
     category_id: Mapped[int] = mapped_column(ForeignKey("bowl_categories.id", ondelete="CASCADE"), nullable=False, index=True)
     meal_category_id: Mapped[int] = mapped_column(ForeignKey("meal_categories.id", ondelete="SET NULL"), nullable=True, index=True)
-    
+    created_by_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
 
     category: Mapped["BowlCategory"] = relationship("BowlCategory", back_populates="bowls")
     meal_category: Mapped["MealCategory"] = relationship("MealCategory", back_populates="bowls")
+    created_by: Mapped["User"] = relationship("User", foreign_keys=[created_by_id])
     packaging: Mapped["Packaging"] = relationship("Packaging")
     ingredients: Mapped[list["BowlIngredient"]] = relationship("BowlIngredient", back_populates="bowl", cascade="all, delete-orphan")
 

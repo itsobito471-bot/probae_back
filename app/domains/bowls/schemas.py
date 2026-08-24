@@ -57,15 +57,15 @@ class PaginatedMealCategories(BaseModel):
 
 # Bowl Ingredients
 class BowlIngredientInput(BaseModel):
-    ingredient_ulid: str
+    ingredient_ulid: Optional[str] = None
+    ingredient_id: Optional[int] = None
     section_name: BowlSection
     weight_g_or_ml: float
 
 class BowlIngredientResponse(BaseModel):
+    ingredient_id: int
     section_name: BowlSection
     weight_g_or_ml: float
-    # Assuming IngredientResponse is complex, we will just return ID/ulid for now
-    # or a generic dict if needed. Let's do a simple nested class for basic ingredient info
     ingredient_ulid: str
     ingredient_name: str
     
@@ -75,12 +75,14 @@ class BowlBase(BaseModel):
     name: str
     code: Optional[str] = None
     description: Optional[str] = None
-    bowl_type: BowlType = BowlType.STANDARD
+    bowl_type: BowlType = BowlType.BLEND
     status: bool = True
     fixed_cost: float = 0.0
     category_id: int
     meal_category_id: Optional[int] = None
     packaging_ulid: Optional[str] = None
+    packaging_id: Optional[int] = None
+    image_filename: Optional[str] = None
 
 class BowlCreate(BowlBase):
     ingredients: List[BowlIngredientInput] = []
@@ -95,6 +97,8 @@ class BowlUpdate(BaseModel):
     category_id: Optional[int] = None
     meal_category_id: Optional[int] = None
     packaging_ulid: Optional[str] = None
+    packaging_id: Optional[int] = None
+    image_filename: Optional[str] = None
     ingredients: Optional[List[BowlIngredientInput]] = None
 
 class BowlResponse(BaseModel):
@@ -109,10 +113,24 @@ class BowlResponse(BaseModel):
     fixed_cost: float
     total_cost: float
     
+    total_calories: float = 0.0
+    total_protein: float = 0.0
+    total_carbs: float = 0.0
+    total_fat: float = 0.0
+    total_fiber: float = 0.0
+    total_weight: float = 0.0
+    
+    created_at: datetime
+    updated_at: datetime
+    
     category_id: int
     meal_category_id: Optional[int] = None
     meal_category: Optional[MealCategoryResponse] = None
+    created_by_id: Optional[int] = None
+    created_by_name: Optional[str] = None
+    
     packaging_id: Optional[int] = None
+    image_filename: Optional[str] = None
     
     # We will resolve the ingredients in the router response to include name and ulid
     ingredients: List[BowlIngredientResponse] = []
