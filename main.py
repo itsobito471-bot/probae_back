@@ -16,6 +16,7 @@ from app.domains.bowls.meal_category_router import router as meal_category_route
 from app.domains.packaging.router import router as packaging_router
 from app.domains.bowls.bowl_router import router as bowl_main_router
 from app.domains.vendors.router import router as vendors_router
+from app.domains.plans.router import router as plans_router
 
 app = FastAPI(
     title=settings.app_name,
@@ -53,6 +54,7 @@ app.include_router(meal_category_router, prefix="/api/v1/meal-categories", tags=
 app.include_router(packaging_router, prefix="/api/v1/packaging", tags=["Packaging"])
 app.include_router(bowl_main_router, prefix="/api/v1/bowls", tags=["Bowls"])
 app.include_router(vendors_router, prefix="/api/v1/vendors", tags=["Vendors"])
+app.include_router(plans_router, prefix="/api/v1/plans", tags=["Plan Tiers"])
 
 @app.get("/")
 async def root():
