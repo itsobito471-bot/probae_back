@@ -511,3 +511,137 @@ async def get_monthly_purchases(
         page=page,
         size=size
     )
+
+from pydantic import BaseModel
+from typing import List, Optional
+
+class TrendHistoryPoint(BaseModel):
+    label: str
+    price: float
+    standard: float
+
+class RawMaterialTrendResponse(BaseModel):
+    id: int
+    name: str
+    item_code: Optional[str] = None
+    category_name: Optional[str] = None
+    unit: str
+    current_price: float
+    previous_price: float
+    avg_purchase: float
+    variance: float
+    trend_percent: float
+    history: List[TrendHistoryPoint]
+
+class PaginatedTrendsResponse(BaseModel):
+    items: List[RawMaterialTrendResponse]
+    total: int
+    page: int
+    size: int
+
+@router.get("/purchases/trends", response_model=PaginatedTrendsResponse)
+async def get_purchase_trends(
+    page: int = Query(1, ge=1),
+    size: int = Query(20, ge=1, le=100),
+    search: Optional[str] = None,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    from sqlalchemy import select, func, desc, or_
+    from datetime import datetime, timedelta, timezone
+    
+    # 1. Base query for raw materials
+    q_rm = select(RawMaterial)
+    if search:
+        q_rm = q_rm.where(or_(
+            RawMaterial.name.ilike(f"%{search}%"),
+            RawMaterial.item_code.ilike(f"%{search}%")
+        ))
+    
+    # Get total count
+    count_query = select(func.count()).select_from(q_rm.subquery())
+    total = await db.scalar(count_query)
+    
+    # Fetch paginated raw materials
+    q_rm = q_rm.options(selectinload(RawMaterial.category)).offset((page - 1) * size).limit(size)
+    res_rm = await db.execute(q_rm)
+    raw_materials = res_rm.scalars().all()
+    
+    rm_ids = [rm.id for rm in raw_materials]
+    
+    # Fetch purchases for these raw materials in the last 6 months
+    purchases = []
+    if rm_ids:
+        six_months_ago = datetime.now(timezone.utc) - timedelta(days=180)
+        q_purchases = select(RawMaterialPurchase).where(
+            RawMaterialPurchase.raw_material_id.in_(rm_ids),
+            RawMaterialPurchase.purchase_date >= six_months_ago
+        ).order_by(RawMaterialPurchase.purchase_date.asc())
+        res_purchases = await db.execute(q_purchases)
+        purchases = res_purchases.scalars().all()
+    
+    # Group purchases
+    purchases_by_rm = {}
+    for p in purchases:
+        if p.raw_material_id not in purchases_by_rm:
+            purchases_by_rm[p.raw_material_id] = []
+        purchases_by_rm[p.raw_material_id].append(p)
+    
+    trends = []
+    for rm in raw_materials:
+        rm_purchases = purchases_by_rm.get(rm.id, [])
+        
+        current_price = rm.actual_price or rm.price or 0
+        previous_price = rm.previous_price or current_price
+        
+        avg_purchase = current_price
+        variance = 0
+        
+        total_quantity = sum(float(p.quantity) for p in rm_purchases)
+        if total_quantity > 0:
+            avg_purchase = sum(float(p.total_amount) for p in rm_purchases) / total_quantity
+            variance = sum(float(p.variance) for p in rm_purchases) / total_quantity
+            
+        trend_percent = 0
+        if previous_price > 0:
+            trend_percent = ((float(current_price) - float(previous_price)) / float(previous_price)) * 100
+            
+        # Build history (monthly buckets)
+        history_map = {}
+        for p in rm_purchases:
+            month_label = p.purchase_date.strftime("%b %Y")
+            if month_label not in history_map:
+                history_map[month_label] = {"total_amt": 0, "total_qty": 0, "standard_cost": rm.standard_price or rm.price or 0}
+            history_map[month_label]["total_amt"] += float(p.total_amount)
+            history_map[month_label]["total_qty"] += float(p.quantity)
+            
+        history = []
+        for label, data in history_map.items():
+            qty = data["total_qty"]
+            price = data["total_amt"] / qty if qty > 0 else 0
+            history.append(TrendHistoryPoint(
+                label=label,
+                price=price,
+                standard=float(data["standard_cost"])
+            ))
+            
+        trends.append(RawMaterialTrendResponse(
+            id=rm.id,
+            name=rm.name,
+            item_code=rm.item_code,
+            category_name=rm.category.name if rm.category else "Uncategorized",
+            unit=rm.unit.value,
+            current_price=float(current_price),
+            previous_price=float(previous_price),
+            avg_purchase=float(avg_purchase),
+            variance=float(variance),
+            trend_percent=float(trend_percent),
+            history=history
+        ))
+        
+    return PaginatedTrendsResponse(
+        items=trends,
+        total=total,
+        page=page,
+        size=size
+    )
