@@ -27,6 +27,7 @@ from app.domains.bowls.models import BowlCategory, Bowl, BowlIngredient, MealCat
 from app.domains.packaging.models import Packaging, PackagingComponent, PackagingItemLink
 from app.domains.vendors.models import Vendor
 from app.domains.plans.models import PlanTier, PlanTierSelection
+from app.domains.customers.models import Customer
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
