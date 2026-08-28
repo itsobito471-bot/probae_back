@@ -19,6 +19,7 @@ class Customer(Base, TimestampMixin):
     name: Mapped[str] = mapped_column(String(100), nullable=False)
     phone: Mapped[str] = mapped_column(String(20), nullable=False, unique=True, index=True)
     email: Mapped[str] = mapped_column(String(255), nullable=True)
+    image_filename: Mapped[str] = mapped_column(String(255), nullable=True)
     address: Mapped[str] = mapped_column(String(500), nullable=True)
     
     # Biological Info

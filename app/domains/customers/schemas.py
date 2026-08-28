@@ -14,11 +14,16 @@ class CalorieProfileSchema(BaseModel):
     carbs: int
     fat: int
     fiber: int
+    probaeTarget: Optional[int] = None
+    mealCalories: Optional[Dict[str, int]] = None
+    lockedMeals: Optional[Dict[str, bool]] = None
+    mealSlots: Optional[List[str]] = None
 
 class CustomerBase(BaseModel):
     name: str
     phone: str
     email: Optional[str] = None
+    image_filename: Optional[str] = None
     address: Optional[str] = None
     
     sex: str
@@ -43,6 +48,7 @@ class CustomerUpdate(BaseModel):
     name: Optional[str] = None
     phone: Optional[str] = None
     email: Optional[str] = None
+    image_filename: Optional[str] = None
     address: Optional[str] = None
     sex: Optional[str] = None
     age: Optional[int] = None

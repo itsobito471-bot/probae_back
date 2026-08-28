@@ -158,7 +158,7 @@ async def update_customer(ulid: str, customer_in: CustomerUpdate, db: AsyncSessi
             
     # Auto-recalculate calories if biological factors change
     bio_keys = ["sex", "age", "height", "weight", "activity_level", "goal"]
-    if any(k in update_data for k in bio_keys) and "calorie_profile" not in update_data:
+    if any(k in update_data and update_data[k] != getattr(customer, k) for k in bio_keys):
         calc_req = CalculateCaloriesRequest(
             sex=update_data.get("sex", customer.sex),
             age=update_data.get("age", customer.age),
@@ -167,7 +167,11 @@ async def update_customer(ulid: str, customer_in: CustomerUpdate, db: AsyncSessi
             activity_level=update_data.get("activity_level", customer.activity_level),
             goal=update_data.get("goal", customer.goal)
         )
-        update_data["calorie_profile"] = calculate_mifflin(calc_req)
+        new_cals = calculate_mifflin(calc_req)
+        if "calorie_profile" in update_data and update_data["calorie_profile"]:
+            update_data["calorie_profile"].update(new_cals)
+        else:
+            update_data["calorie_profile"] = new_cals
     
     for field, value in update_data.items():
         setattr(customer, field, value)
