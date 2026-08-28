@@ -49,6 +49,10 @@ async def generate_daily_orders():
                     calorie_profile = customer.calorie_profile or {}
                     meal_calories = calorie_profile.get("mealCalories", {})
                     goal = customer.goal or "MAINTENANCE"
+
+                    if not customer.selected_plan_id:
+                        logger.warning(f"Customer {customer.ulid} has no selected plan. Skipping.")
+                        continue
                     
                     # 2. Fetch PlanTier and Selections for tomorrow
                     plan = await db.scalar(

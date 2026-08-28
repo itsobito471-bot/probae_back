@@ -149,6 +149,7 @@ async def list_bowls(
     page: int = Query(1, ge=1),
     page_size: int = Query(10, ge=1, le=100),
     search: Optional[str] = Query(None),
+    meal_category_ulid: Optional[str] = Query(None),
     db: AsyncSession = Depends(get_db)
 ):
     count_q = select(func.count()).select_from(Bowl)
@@ -157,6 +158,12 @@ async def list_bowls(
         selectinload(Bowl.meal_category),
         selectinload(Bowl.created_by)
     )
+    
+    if meal_category_ulid:
+        # Join meal_category to filter by ulid
+        query = query.join(Bowl.meal_category).where(MealCategory.ulid == meal_category_ulid)
+        count_q = count_q.join(Bowl.meal_category).where(MealCategory.ulid == meal_category_ulid)
+        
     if search:
         query = query.where(Bowl.name.ilike(f"%{search}%"))
         count_q = count_q.where(Bowl.name.ilike(f"%{search}%"))

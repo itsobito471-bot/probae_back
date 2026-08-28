@@ -81,3 +81,28 @@ class OrderCheckoutRequest(BaseModel):
     customer_ulid: str
     target_date: date
     items: List[CheckoutItem]
+
+class OrderStatusUpdateRequest(BaseModel):
+    status: OrderStatus
+
+class OrderItemUpdateRequest(BaseModel):
+    meal_slot: Optional[str] = None
+    quantity: Optional[int] = None
+    adjusted_calories: Optional[float] = None
+    adjusted_protein: Optional[float] = None
+    adjusted_carbs: Optional[float] = None
+    adjusted_fat: Optional[float] = None
+    adjusted_fiber: Optional[float] = None
+    adjusted_price: Optional[float] = None
+    adjusted_ingredients: Optional[List[Dict[str, Any]]] = None
+
+class OrderDetailCustomer(BaseModel):
+    ulid: str
+    name: str
+    phone: str
+    email: Optional[str] = None
+    goal: Optional[str] = None
+    calorie_profile: Optional[Dict[str, Any]] = None
+    
+    class Config:
+        from_attributes = True

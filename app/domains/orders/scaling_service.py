@@ -106,7 +106,7 @@ async def scale_bowl(bowl: Any, target_calories: float, customer_goal: str) -> S
     
     # Check if string matching or Enum matching
     b_type = bowl.bowl_type.name if hasattr(bowl.bowl_type, 'name') else str(bowl.bowl_type)
-    is_blend = b_type == BowlType.BLEND.value or customer_goal == CustomerGoal.MAINTENANCE.value
+    is_blend = b_type == BowlType.BLEND.value or customer_goal.lower().replace("_", " ") == CustomerGoal.MAINTENANCE.value.lower().replace("_", " ")
     
     if is_blend:
         multiplier = adjustable_target / base_adjustable_calories if base_adjustable_calories > 0 else 1.0
@@ -114,7 +114,7 @@ async def scale_bowl(bowl: Any, target_calories: float, customer_goal: str) -> S
             if w["tag"] != MacroTag.ADD_ON.value:
                 w["new_weight"] = w["orig_weight"] * multiplier
     else:
-        if customer_goal == CustomerGoal.FAT_LOSS.value:
+        if customer_goal.lower().replace("_", " ") == CustomerGoal.FAT_LOSS.value.lower().replace("_", " "):
             carb_reduction_factor = 0.60 
             for w in working_ingredients:
                 if w["tag"] == MacroTag.CARB.value:
@@ -129,15 +129,32 @@ async def scale_bowl(bowl: Any, target_calories: float, customer_goal: str) -> S
             deficit = adjustable_target - current_adj_calories
             
             if deficit > 0:
-                protein_grams_to_add = deficit / 4.0
                 protein_items = [w for w in working_ingredients if w["tag"] == MacroTag.PROTEIN.value]
                 
-                total_orig_protein_weight = sum(p["orig_weight"] for p in protein_items)
-                for p in protein_items:
-                    share = (p["orig_weight"] / total_orig_protein_weight) if total_orig_protein_weight > 0 else (1.0 / len(protein_items))
-                    p["new_weight"] += (protein_grams_to_add * share)
+                if not protein_items:
+                    # Fallback to blend scaling if no protein items
+                    mult = adjustable_target / current_adj_calories if current_adj_calories > 0 else 1.0
+                    for w in working_ingredients:
+                        if w["tag"] != MacroTag.ADD_ON.value:
+                            w["new_weight"] *= mult
+                else:
+                    # Distribute deficit calories across protein items
+                    total_orig_protein_weight = sum(p["orig_weight"] for p in protein_items)
+                    for p in protein_items:
+                        share = (p["orig_weight"] / total_orig_protein_weight) if total_orig_protein_weight > 0 else (1.0 / len(protein_items))
+                        calories_to_add = deficit * share
+                        
+                        # How many calories are in 1g of this ingredient?
+                        cal_per_g = p["cals"] / p["orig_weight"] if p["orig_weight"] > 0 else 0
+                        if cal_per_g > 0:
+                            p["new_weight"] += (calories_to_add / cal_per_g)
+            elif deficit < 0:
+                mult = adjustable_target / current_adj_calories if current_adj_calories > 0 else 1.0
+                for w in working_ingredients:
+                    if w["tag"] != MacroTag.ADD_ON.value:
+                        w["new_weight"] *= mult
 
-        elif customer_goal == CustomerGoal.MUSCLE_GAIN.value:
+        elif customer_goal.lower().replace("_", " ") == CustomerGoal.MUSCLE_GAIN.value.lower().replace("_", " "):
             fiber_reduction_factor = 0.80
             for w in working_ingredients:
                 if w["tag"] == MacroTag.FIBER.value:
@@ -152,24 +169,39 @@ async def scale_bowl(bowl: Any, target_calories: float, customer_goal: str) -> S
             deficit = adjustable_target - current_adj_calories
             
             if deficit > 0:
-                protein_deficit = deficit * 0.5
-                carb_deficit = deficit * 0.5
-                
-                protein_grams_to_add = protein_deficit / 4.0
-                carb_grams_to_add = carb_deficit / 4.0
-                
                 protein_items = [w for w in working_ingredients if w["tag"] == MacroTag.PROTEIN.value]
                 carb_items = [w for w in working_ingredients if w["tag"] == MacroTag.CARB.value]
                 
-                total_orig_protein_weight = sum(p["orig_weight"] for p in protein_items)
-                for p in protein_items:
-                    share = (p["orig_weight"] / total_orig_protein_weight) if total_orig_protein_weight > 0 else (1.0 / len(protein_items))
-                    p["new_weight"] += (protein_grams_to_add * share)
+                if not protein_items or not carb_items:
+                    # Fallback to blend scaling
+                    mult = adjustable_target / current_adj_calories if current_adj_calories > 0 else 1.0
+                    for w in working_ingredients:
+                        if w["tag"] != MacroTag.ADD_ON.value:
+                            w["new_weight"] *= mult
+                else:
+                    protein_deficit = deficit * 0.5
+                    carb_deficit = deficit * 0.5
                     
-                total_orig_carb_weight = sum(c["orig_weight"] for c in carb_items)
-                for c in carb_items:
-                    share = (c["orig_weight"] / total_orig_carb_weight) if total_orig_carb_weight > 0 else (1.0 / len(carb_items))
-                    c["new_weight"] += (carb_grams_to_add * share)
+                    total_orig_protein_weight = sum(p["orig_weight"] for p in protein_items)
+                    for p in protein_items:
+                        share = (p["orig_weight"] / total_orig_protein_weight) if total_orig_protein_weight > 0 else (1.0 / len(protein_items))
+                        calories_to_add = protein_deficit * share
+                        cal_per_g = p["cals"] / p["orig_weight"] if p["orig_weight"] > 0 else 0
+                        if cal_per_g > 0:
+                            p["new_weight"] += (calories_to_add / cal_per_g)
+                            
+                    total_orig_carb_weight = sum(c["orig_weight"] for c in carb_items)
+                    for c in carb_items:
+                        share = (c["orig_weight"] / total_orig_carb_weight) if total_orig_carb_weight > 0 else (1.0 / len(carb_items))
+                        calories_to_add = carb_deficit * share
+                        cal_per_g = c["cals"] / c["orig_weight"] if c["orig_weight"] > 0 else 0
+                        if cal_per_g > 0:
+                            c["new_weight"] += (calories_to_add / cal_per_g)
+            elif deficit < 0:
+                mult = adjustable_target / current_adj_calories if current_adj_calories > 0 else 1.0
+                for w in working_ingredients:
+                    if w["tag"] != MacroTag.ADD_ON.value:
+                        w["new_weight"] *= mult
 
     final_calories = 0.0
     final_protein = 0.0

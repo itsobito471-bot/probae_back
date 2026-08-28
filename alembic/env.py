@@ -27,7 +27,7 @@ from app.domains.bowls.models import BowlCategory, Bowl, BowlIngredient, MealCat
 from app.domains.packaging.models import Packaging, PackagingComponent, PackagingItemLink
 from app.domains.vendors.models import Vendor
 from app.domains.plans.models import PlanTier, PlanTierSelection
-from app.domains.customers.models import Customer
+from app.domains.customers.models import Customer, CustomerCalorieLog
 from app.domains.orders.models import Order, OrderItem
 
 # this is the Alembic Config object, which provides

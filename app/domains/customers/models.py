@@ -1,5 +1,5 @@
 import enum
-from sqlalchemy import String, Boolean, Enum, JSON, Integer, ForeignKey
+from sqlalchemy import String, Boolean, Enum, JSON, Integer, ForeignKey, Numeric
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.core.database import Base, TimestampMixin, generate_ulid
 
@@ -41,8 +41,31 @@ class Customer(Base, TimestampMixin):
     # Plan
     selected_plan_id: Mapped[str] = mapped_column(String(26), ForeignKey("plan_tiers.ulid"), nullable=True)
     
+    # Stats
+    total_calories_ordered: Mapped[float] = mapped_column(Numeric(15, 2), default=0.0, nullable=False)
+    
     # Status
     status: Mapped[CustomerStatus] = mapped_column(Enum(CustomerStatus), default=CustomerStatus.ONBOARDING, nullable=False)
 
     def __repr__(self):
         return f"<Customer {self.name} - {self.phone}>"
+
+from sqlalchemy import Date, Numeric
+
+class CustomerCalorieLog(Base, TimestampMixin):
+    __tablename__ = "customer_calorie_logs"
+    
+    id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    ulid: Mapped[str] = mapped_column(String(26), default=generate_ulid, unique=True, index=True, nullable=False)
+    
+    customer_id: Mapped[int] = mapped_column(ForeignKey("customers.id", ondelete="CASCADE"), nullable=False, index=True)
+    order_id: Mapped[int] = mapped_column(ForeignKey("orders.id", ondelete="SET NULL"), nullable=True, index=True)
+    
+    target_date: Mapped[str] = mapped_column(Date, nullable=False, index=True)
+    meal_slot: Mapped[str] = mapped_column(String(50), nullable=False)
+    
+    calories: Mapped[float] = mapped_column(Numeric(10, 2), default=0.0, nullable=False)
+    protein: Mapped[float] = mapped_column(Numeric(10, 2), default=0.0, nullable=False)
+    carbs: Mapped[float] = mapped_column(Numeric(10, 2), default=0.0, nullable=False)
+    fat: Mapped[float] = mapped_column(Numeric(10, 2), default=0.0, nullable=False)
+    fiber: Mapped[float] = mapped_column(Numeric(10, 2), default=0.0, nullable=False)

@@ -40,6 +40,7 @@ class CustomerBase(BaseModel):
     calorie_profile: Optional[CalorieProfileSchema] = None
     selected_plan_id: Optional[str] = None
     status: Optional[CustomerStatus] = CustomerStatus.ONBOARDING
+    total_calories_ordered: Optional[float] = 0.0
 
 class CustomerCreate(CustomerBase):
     pass
