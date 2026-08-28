@@ -186,3 +186,96 @@ async def delete_tier(ulid: str, db: AsyncSession = Depends(get_db)):
     tier.is_deleted = True
     await db.commit()
     return {"success": True}
+
+from app.domains.customers.models import Customer
+from app.domains.orders.scaling_service import scale_bowl
+from app.domains.plans.schemas import PlanPreviewRequest
+from app.domains.bowls.models import BowlIngredient
+
+
+
+from app.domains.customers.models import Customer
+from app.domains.orders.scaling_service import scale_bowl
+from app.domains.plans.schemas import PlanPreviewRequest
+from app.domains.bowls.models import BowlIngredient
+
+@router.post("/preview-customization")
+async def preview_customization(req: PlanPreviewRequest, db: AsyncSession = Depends(get_db)):
+    # 1. Fetch Goal and Meal Calories (Stateless or Stateful)
+    goal = req.goal or "MAINTENANCE"
+    meal_calories = req.meal_calories or {}
+
+    if req.customer_ulid:
+        customer = await db.scalar(select(Customer).where(Customer.ulid == req.customer_ulid))
+        if customer:
+            calorie_profile = customer.calorie_profile or {}
+            meal_calories = calorie_profile.get("mealCalories", {})
+            goal = customer.goal or "MAINTENANCE"
+
+    # 2. Fetch PlanTier and Selections
+    plan = await db.scalar(
+        select(PlanTier)
+        .where(PlanTier.ulid == req.plan_ulid, PlanTier.is_deleted == False)
+        .options(
+            selectinload(PlanTier.selections).selectinload(PlanTierSelection.bowl).selectinload(Bowl.ingredients).selectinload(BowlIngredient.ingredient)
+        )
+    )
+    if not plan:
+        raise HTTPException(status_code=404, detail="Plan Tier not found")
+
+    # 3. Calculate Discount Percentage
+    discount_pct = 0.0
+    if plan.total_price and plan.total_price > 0 and plan.discount_price and plan.discount_price < plan.total_price:
+        discount_pct = float((plan.total_price - plan.discount_price) / plan.total_price)
+
+    gross_price = 0.0
+    scaled_matrix = []
+
+    # 4. Scale each bowl
+    for sel in plan.selections:
+                # Map short codes from PlanTierSelection to the frontend customer mealSlot keys
+        code_map = {
+            "B": "B-FAST",
+            "L": "LUNCH",
+            "D": "DINNER"
+        }
+        mapped_key = code_map.get(sel.meal_type_code, sel.meal_type_code)
+        target_calories = float(meal_calories.get(mapped_key, 0.0))
+        bowl = sel.bowl
+        
+        scaled_result = None
+        if target_calories > 0 and bowl and bowl.ingredients:
+            try:
+                scaled_result = await scale_bowl(bowl, target_calories, goal)
+                gross_price += scaled_result.final_price
+            except Exception as e:
+                print(f"Error scaling bowl {bowl.id}: {e}")
+                gross_price += float(bowl.total_cost or 0)
+        else:
+            gross_price += float(bowl.total_cost or 0) if bowl else 0
+
+        scaled_matrix.append({
+            "meal_type": sel.meal_type_code,
+            "day_index": sel.day_index,
+            "bowl_ulid": bowl.ulid if bowl else None,
+            "bowl_name": bowl.name if bowl else "Unknown",
+            "target_calories": target_calories,
+            "scaled_calories": scaled_result.total_calories if scaled_result else (bowl.raw_cost if bowl else 0),
+            "scaled_protein": scaled_result.total_protein if scaled_result else 0,
+            "scaled_carbs": scaled_result.total_carbs if scaled_result else 0,
+            "scaled_fats": scaled_result.total_fat if scaled_result else 0,
+            "scaled_price": scaled_result.final_price if scaled_result else (bowl.total_cost if bowl else 0),
+        })
+
+    discount_amount = gross_price * discount_pct
+    final_discounted_price = gross_price - discount_amount
+
+    return {
+        "success": True,
+        "gross_price": round(gross_price, 2),
+        "discount_amount": round(discount_amount, 2),
+        "discount_percentage": round(discount_pct * 100, 2),
+        "final_discounted_price": round(final_discounted_price, 2),
+        "scaled_matrix": scaled_matrix
+    }
+

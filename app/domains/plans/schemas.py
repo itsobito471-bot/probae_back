@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 
 class BowlBasicSchema(BaseModel):
     id: int
@@ -64,3 +64,10 @@ class PlanTierListResponse(BaseModel):
     totalCount: int
     page: int
     limit: int
+
+class PlanPreviewRequest(BaseModel):
+    customer_ulid: Optional[str] = None
+    goal: Optional[str] = None
+    meal_calories: Optional[Dict[str, float]] = None
+    plan_ulid: str
+
