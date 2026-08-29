@@ -227,7 +227,7 @@ async def update_raw_material_macros(
     await db.refresh(material)
     
     # Reload with category for response
-    res = await db.execute(select(RawMaterial).options(selectinload(RawMaterial.category)).where(RawMaterial.id == material.id))
+    res = await db.execute(select(RawMaterial).options(selectinload(RawMaterial.category), selectinload(RawMaterial.vendor)).where(RawMaterial.id == material.id))
     return res.scalars().first()
 
 @router.post("/{ulid}/stock", response_model=RawMaterialResponse)
@@ -266,7 +266,7 @@ async def adjust_raw_material_stock(
     await db.refresh(material)
     
     # Reload with category for response
-    res = await db.execute(select(RawMaterial).options(selectinload(RawMaterial.category)).where(RawMaterial.id == material.id))
+    res = await db.execute(select(RawMaterial).options(selectinload(RawMaterial.category), selectinload(RawMaterial.vendor)).where(RawMaterial.id == material.id))
     return res.scalars().first()
 
 
@@ -290,7 +290,7 @@ async def update_stock_threshold(
     await db.refresh(material)
     
     # Reload with category for response
-    res = await db.execute(select(RawMaterial).options(selectinload(RawMaterial.category)).where(RawMaterial.id == material.id))
+    res = await db.execute(select(RawMaterial).options(selectinload(RawMaterial.category), selectinload(RawMaterial.vendor)).where(RawMaterial.id == material.id))
     return res.scalars().first()
 
 
@@ -563,7 +563,7 @@ async def get_purchase_trends(
     total = await db.scalar(count_query)
     
     # Fetch paginated raw materials
-    q_rm = q_rm.options(selectinload(RawMaterial.category)).offset((page - 1) * size).limit(size)
+    q_rm = q_rm.options(selectinload(RawMaterial.category), selectinload(RawMaterial.vendor)).offset((page - 1) * size).limit(size)
     res_rm = await db.execute(q_rm)
     raw_materials = res_rm.scalars().all()
     

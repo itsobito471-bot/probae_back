@@ -209,8 +209,11 @@ async def preview_customization(req: PlanPreviewRequest, db: AsyncSession = Depe
         customer = await db.scalar(select(Customer).where(Customer.ulid == req.customer_ulid))
         if customer:
             calorie_profile = customer.calorie_profile or {}
-            meal_calories = calorie_profile.get("mealCalories", {})
-            goal = customer.goal or "MAINTENANCE"
+            # Prefer what was passed in the request (live form state), fallback to DB
+            if not req.meal_calories:
+                meal_calories = calorie_profile.get("mealCalories", {})
+            if not req.goal:
+                goal = customer.goal or "MAINTENANCE"
 
     # 2. Fetch PlanTier and Selections
     plan = await db.scalar(
@@ -235,12 +238,17 @@ async def preview_customization(req: PlanPreviewRequest, db: AsyncSession = Depe
     for sel in plan.selections:
                 # Map short codes from PlanTierSelection to the frontend customer mealSlot keys
         code_map = {
-            "B": "B-FAST",
-            "L": "LUNCH",
-            "D": "DINNER"
+            "B": "Breakfast",
+            "L": "Lunch",
+            "D": "Dinner",
+            "S": "Snack"
         }
         mapped_key = code_map.get(sel.meal_type_code, sel.meal_type_code)
-        target_calories = float(meal_calories.get(mapped_key, 0.0))
+        target_calories = 0.0
+        for k, v in meal_calories.items():
+            if k.lower() == mapped_key.lower() or k.lower() == sel.meal_type_code.lower():
+                target_calories = float(v)
+                break
         bowl = sel.bowl
         
         scaled_result = None

@@ -24,9 +24,10 @@ async def generate_daily_orders():
     
     # Mapping for DB Plan code to Customer mealSlot key
     code_map = {
-        "B": "B-FAST",
-        "L": "LUNCH",
-        "D": "DINNER"
+        "B": "Breakfast",
+        "L": "Lunch",
+        "D": "Dinner",
+        "S": "Snack"
     }
 
     async with AsyncSessionLocal() as db:
@@ -80,7 +81,11 @@ async def generate_daily_orders():
                     # 3. Process each bowl in the schedule
                     for sel in tomorrow_selections:
                         mapped_key = code_map.get(sel.meal_type_code, sel.meal_type_code)
-                        target_calories = float(meal_calories.get(mapped_key, 0.0))
+                        target_calories = 0.0
+                        for k, v in meal_calories.items():
+                            if k.lower() == mapped_key.lower() or k.lower() == sel.meal_type_code.lower():
+                                target_calories = float(v)
+                                break
                         bowl = sel.bowl
                         
                         if not bowl or not bowl.ingredients or target_calories <= 0:
