@@ -1,16 +1,14 @@
 import asyncio
-from app.core.database import AsyncSessionLocal
-from sqlalchemy import text
+from sqlalchemy import select
+from sqlalchemy.orm import selectinload
+from app.core.database import async_session_maker
+from app.domains.ingredients.models import Ingredient
 
 async def main():
-    async with AsyncSessionLocal() as db:
-        res = await db.execute(text("SELECT name, calorie_profile FROM customers WHERE ulid = '01M17EZ3KDQ8671SVTEP4HVG2H'"))
-        row = res.fetchone()
-        if row:
-            print(f"Customer Name: {row[0]}")
-            print(f"Calorie Profile: {row[1]}")
-        else:
-            print("Customer not found")
+    async with async_session_maker() as session:
+        query = select(Ingredient).options(selectinload(Ingredient.raw_materials))
+        result = await session.execute(query)
+        items = result.scalars().all()
+        print(items)
 
-if __name__ == "__main__":
-    asyncio.run(main())
+asyncio.run(main())

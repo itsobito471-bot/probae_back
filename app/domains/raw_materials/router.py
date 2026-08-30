@@ -64,6 +64,7 @@ async def create_raw_material(
 async def get_raw_materials(
     search: Optional[str] = None,
     stockout: Optional[bool] = False,
+    sort: Optional[str] = "A to Z",
     page: int = Query(1, ge=1),
     size: int = Query(20, ge=1, le=100),
     current_user: User = Depends(get_current_user),
@@ -83,7 +84,16 @@ async def get_raw_materials(
     total = total_result.scalar()
 
     # Pagination
-    query = query.order_by(RawMaterial.name).offset((page - 1) * size).limit(size)
+    if sort == "Z to A":
+        query = query.order_by(RawMaterial.name.desc())
+    elif sort == "Newest":
+        query = query.order_by(RawMaterial.created_at.desc())
+    elif sort == "Oldest":
+        query = query.order_by(RawMaterial.created_at.asc())
+    else:
+        query = query.order_by(RawMaterial.name.asc())
+    
+    query = query.offset((page - 1) * size).limit(size)
     result = await db.execute(query)
     items = result.scalars().all()
 

@@ -36,6 +36,7 @@ async def list_meal_categories(
     page: int = Query(1, ge=1),
     page_size: int = Query(10, ge=1, le=100),
     search: Optional[str] = None,
+    sort: Optional[str] = "A to Z",
     db: AsyncSession = Depends(get_db)
 ):
     query = select(MealCategory)

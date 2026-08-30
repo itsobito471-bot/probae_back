@@ -93,37 +93,53 @@ async def list_ingredients(
     page: int = Query(1, ge=1),
     page_size: int = Query(10, ge=1, le=100),
     search: Optional[str] = Query(None),
+    sort: Optional[str] = "A to Z",
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    query = select(Ingredient)
+        try:
+            query = select(Ingredient)
     
-    if search:
-        query = query.where(
-            or_(
-                Ingredient.name.ilike(f"%{search}%"),
-                Ingredient.code.ilike(f"%{search}%")
-            )
-        )
+            if search:
+                query = query.where(
+                    or_(
+                        Ingredient.name.ilike(f"%{search}%"),
+                        Ingredient.code.ilike(f"%{search}%")
+                    )
+                )
+            
+            total_query = select(func.count()).select_from(query.subquery())
+            total = await db.scalar(total_query)
         
-    total_query = select(func.count()).select_from(query.subquery())
-    total = await db.scalar(total_query)
-    
-    query = query.order_by(Ingredient.id.desc()).offset((page - 1) * page_size).limit(page_size)
-    query = query.options(selectinload(Ingredient.raw_materials))
-    
-    result = await db.execute(query)
-    items = result.scalars().all()
-    
-    pages = math.ceil(total / page_size) if total else 0
-    
-    return {
-        "items": items,
-        "total": total,
-        "page": page,
-        "page_size": page_size,
-        "pages": pages
-    }
+            if sort == "Z to A":
+                query = query.order_by(Ingredient.name.desc())
+            elif sort == "Newest":
+                query = query.order_by(Ingredient.created_at.desc())
+            elif sort == "Oldest":
+                query = query.order_by(Ingredient.created_at.asc())
+            else:
+                query = query.order_by(Ingredient.name.asc())
+        
+            query = query.offset((page - 1) * page_size).limit(page_size)
+            query = query.options(selectinload(Ingredient.raw_materials))
+        
+            result = await db.execute(query)
+            items = result.scalars().all()
+        
+            pages = math.ceil(total / page_size) if total else 0
+        
+            return {
+                "items": items,
+                "total": total,
+                "page": page,
+                "page_size": page_size,
+                "pages": pages
+            }
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            from fastapi.responses import JSONResponse
+            return JSONResponse(status_code=400, content={"detail": str(e)})
 
 @router.get("/{ulid}", response_model=IngredientResponse)
 async def get_ingredient(

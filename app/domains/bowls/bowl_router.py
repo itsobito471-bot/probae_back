@@ -149,6 +149,7 @@ async def list_bowls(
     page: int = Query(1, ge=1),
     page_size: int = Query(10, ge=1, le=100),
     search: Optional[str] = Query(None),
+    sort: Optional[str] = "A to Z",
     meal_category_ulid: Optional[str] = Query(None),
     db: AsyncSession = Depends(get_db)
 ):
@@ -169,7 +170,16 @@ async def list_bowls(
         count_q = count_q.where(Bowl.name.ilike(f"%{search}%"))
         
     total = await db.scalar(count_q)
-    query = query.order_by(Bowl.id.desc()).offset((page - 1) * page_size).limit(page_size)
+    if sort == "Z to A":
+        query = query.order_by(Bowl.name.desc())
+    elif sort == "Newest":
+        query = query.order_by(Bowl.created_at.desc())
+    elif sort == "Oldest":
+        query = query.order_by(Bowl.created_at.asc())
+    else:
+        query = query.order_by(Bowl.name.asc())
+    
+    query = query.offset((page - 1) * page_size).limit(page_size)
     
     result = await db.execute(query)
     items = result.scalars().all()

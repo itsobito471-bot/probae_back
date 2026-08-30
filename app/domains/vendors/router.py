@@ -38,6 +38,7 @@ async def list_vendors(
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
     search: Optional[str] = Query(None),
+    sort: Optional[str] = "A to Z",
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
@@ -49,7 +50,16 @@ async def list_vendors(
         )
         
     total = await db.scalar(select(func.count()).select_from(query.subquery()))
-    query = query.order_by(Vendor.name.asc()).offset((page - 1) * page_size).limit(page_size)
+    if sort == "Z to A":
+        query = query.order_by(Vendor.name.desc())
+    elif sort == "Newest":
+        query = query.order_by(Vendor.created_at.desc())
+    elif sort == "Oldest":
+        query = query.order_by(Vendor.created_at.asc())
+    else:
+        query = query.order_by(Vendor.name.asc())
+    
+    query = query.offset((page - 1) * page_size).limit(page_size)
     
     result = await db.execute(query)
     items = result.scalars().all()
