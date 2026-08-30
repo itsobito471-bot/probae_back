@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func
+from sqlalchemy import select, func, cast, String, or_
 from sqlalchemy.orm import selectinload
 from typing import Optional
 from datetime import date
@@ -20,14 +20,31 @@ async def list_orders(
     limit: int = Query(10, ge=1, le=100),
     source: Optional[OrderSource] = None,
     target_date: Optional[date] = None,
+    search: Optional[str] = None,
+    customer_id: Optional[int] = None,
+    status: Optional[OrderStatus] = None,
     db: AsyncSession = Depends(get_db)
 ):
-    query = select(Order)
+    query = select(Order).join(Customer, Order.customer_id == Customer.id)
     
     if source:
         query = query.where(Order.order_source == source)
     if target_date:
         query = query.where(Order.target_date == target_date)
+    if customer_id:
+        query = query.where(Order.customer_id == customer_id)
+    if status:
+        query = query.where(Order.status == status)
+    if search:
+        search_str = f"%{search}%"
+        or_conditions = [
+            Customer.name.ilike(search_str),
+            Customer.phone.ilike(search_str),
+            Order.ulid.ilike(search_str)
+        ]
+        if search.isdigit():
+            or_conditions.append(Order.id == int(search))
+        query = query.where(or_(*or_conditions))
         
     total_count = await db.scalar(select(func.count()).select_from(query.subquery()))
     
