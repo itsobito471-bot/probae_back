@@ -1,7 +1,7 @@
 import math
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import select, func, or_
+from sqlalchemy import select, func, or_, cast, String
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -151,6 +151,12 @@ async def list_bowls(
     search: Optional[str] = Query(None),
     sort: Optional[str] = "A to Z",
     meal_category_ulid: Optional[str] = Query(None),
+    meal_category_id: Optional[int] = Query(None),
+    bowl_category_ulid: Optional[str] = Query(None),
+    bowl_category_id: Optional[int] = Query(None),
+    bowl_type: Optional[str] = Query(None),
+    code: Optional[str] = Query(None),
+    created_by_id: Optional[int] = Query(None),
     db: AsyncSession = Depends(get_db)
 ):
     count_q = select(func.count()).select_from(Bowl)
@@ -161,9 +167,28 @@ async def list_bowls(
     )
     
     if meal_category_ulid:
-        # Join meal_category to filter by ulid
         query = query.join(Bowl.meal_category).where(MealCategory.ulid == meal_category_ulid)
         count_q = count_q.join(Bowl.meal_category).where(MealCategory.ulid == meal_category_ulid)
+        
+    if bowl_category_ulid:
+        query = query.join(Bowl.category).where(BowlCategory.ulid == bowl_category_ulid)
+        count_q = count_q.join(Bowl.category).where(BowlCategory.ulid == bowl_category_ulid)
+        
+    if bowl_category_id:
+        query = query.join(Bowl.category).where(BowlCategory.id == bowl_category_id)
+        count_q = count_q.join(Bowl.category).where(BowlCategory.id == bowl_category_id)
+        
+    if bowl_type:
+        query = query.where(cast(Bowl.bowl_type, String) == bowl_type)
+        count_q = count_q.where(cast(Bowl.bowl_type, String) == bowl_type)
+        
+    if code:
+        query = query.where(Bowl.code.ilike(f"%{code}%"))
+        count_q = count_q.where(Bowl.code.ilike(f"%{code}%"))
+        
+    if created_by_id:
+        query = query.where(Bowl.created_by_id == created_by_id)
+        count_q = count_q.where(Bowl.created_by_id == created_by_id)
         
     if search:
         query = query.where(Bowl.name.ilike(f"%{search}%"))

@@ -21,6 +21,8 @@ class Customer(Base, TimestampMixin):
     email: Mapped[str] = mapped_column(String(255), nullable=True)
     image_filename: Mapped[str] = mapped_column(String(255), nullable=True)
     address: Mapped[str] = mapped_column(String(500), nullable=True)
+    latitude: Mapped[float] = mapped_column(Numeric(10, 8), nullable=True)
+    longitude: Mapped[float] = mapped_column(Numeric(11, 8), nullable=True)
     
     # Biological Info
     sex: Mapped[str] = mapped_column(String(10), nullable=False)

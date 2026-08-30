@@ -25,6 +25,8 @@ class CustomerBase(BaseModel):
     email: Optional[str] = None
     image_filename: Optional[str] = None
     address: Optional[str] = None
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
     
     sex: str
     age: int
@@ -51,6 +53,8 @@ class CustomerUpdate(BaseModel):
     email: Optional[str] = None
     image_filename: Optional[str] = None
     address: Optional[str] = None
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
     sex: Optional[str] = None
     age: Optional[int] = None
     height: Optional[float] = None
