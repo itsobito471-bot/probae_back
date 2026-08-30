@@ -96,10 +96,25 @@ async def preview_order(req: OrderPreviewRequest, db: AsyncSession = Depends(get
     # Extract target calories for the requested slot
     calorie_profile = customer.calorie_profile or {}
     meal_calories = calorie_profile.get("mealCalories", {})
-    # Case insensitive lookup for meal slot
+    # Map short codes from legacy DB to the frontend customer mealSlot keys
+    code_map = {
+        "B": "Breakfast",
+        "L": "Lunch",
+        "D": "Dinner",
+        "S": "Snack",
+        "B-FAST": "Breakfast",
+        "BREAKFAST": "Breakfast",
+        "LUNCH": "Lunch",
+        "DINNER": "Dinner",
+        "SNACK": "Snack"
+    }
+    
+    req_mapped = code_map.get(req.meal_slot.upper(), req.meal_slot)
+    
     target_cals = 0.0
     for k, v in meal_calories.items():
-        if k.lower() == req.meal_slot.lower():
+        k_mapped = code_map.get(k.upper(), k)
+        if k.lower() == req.meal_slot.lower() or k_mapped.lower() == req_mapped.lower():
             target_cals = float(v)
             break
             

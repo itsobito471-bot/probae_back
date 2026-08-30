@@ -80,10 +80,11 @@ async def generate_daily_orders():
                     
                     # 3. Process each bowl in the schedule
                     for sel in tomorrow_selections:
-                        mapped_key = code_map.get(sel.meal_type_code, sel.meal_type_code)
+                        req_mapped = code_map.get(sel.meal_type_code.upper(), sel.meal_type_code)
                         target_calories = 0.0
                         for k, v in meal_calories.items():
-                            if k.lower() == mapped_key.lower() or k.lower() == sel.meal_type_code.lower():
+                            k_mapped = code_map.get(k.upper(), k)
+                            if k.lower() == sel.meal_type_code.lower() or k_mapped.lower() == req_mapped.lower():
                                 target_calories = float(v)
                                 break
                         bowl = sel.bowl

@@ -1,13 +1,16 @@
 import asyncio
-from sqlalchemy.ext.asyncio import create_async_engine
+from app.core.database import AsyncSessionLocal
 from sqlalchemy import text
-from app.core.config import settings
 
 async def main():
-    engine = create_async_engine(settings.DATABASE_URL)
-    async with engine.connect() as conn:
-        res = await conn.execute(text("SELECT DISTINCT meal_type_code FROM plan_tier_selections;"))
-        for row in res:
-            print(row[0])
+    async with AsyncSessionLocal() as db:
+        res = await db.execute(text("SELECT name, calorie_profile FROM customers WHERE ulid = '01M17EZ3KDQ8671SVTEP4HVG2H'"))
+        row = res.fetchone()
+        if row:
+            print(f"Customer Name: {row[0]}")
+            print(f"Calorie Profile: {row[1]}")
+        else:
+            print("Customer not found")
 
-asyncio.run(main())
+if __name__ == "__main__":
+    asyncio.run(main())

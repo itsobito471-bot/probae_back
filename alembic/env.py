@@ -29,6 +29,7 @@ from app.domains.vendors.models import Vendor
 from app.domains.plans.models import PlanTier, PlanTierSelection
 from app.domains.customers.models import Customer, CustomerCalorieLog
 from app.domains.orders.models import Order, OrderItem
+from app.domains.kds.models import DailyPrepTask
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.

@@ -16,7 +16,8 @@ import app.domains.customers.models      # noqa: F401
 import app.domains.documents.models      # noqa: F401
 import app.domains.ingredients.models    # noqa: F401
 import app.domains.inventory.models      # noqa: F401
-import app.domains.orders.models         # noqa: F401
+import app.domains.orders.models
+import app.domains.kds.models         # noqa: F401
 import app.domains.packaging.models      # noqa: F401
 import app.domains.plans.models          # noqa: F401
 import app.domains.raw_materials.models  # noqa: F401

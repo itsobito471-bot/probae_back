@@ -20,6 +20,7 @@ class MacroTag(str, Enum):
 
 class ScaledIngredient(BaseModel):
     id: Any
+    ingredient_id: int
     name: str
     macro_tag: str
     original_weight: float
@@ -81,6 +82,7 @@ async def scale_bowl(bowl: Any, target_calories: float, customer_goal: str) -> S
 
         obj = {
             "item_id": item.id,
+            "ingredient_id": ing.id,
             "name": ing.name,
             "tag": tag,
             "orig_weight": float(item.weight_g_or_ml),
@@ -114,7 +116,8 @@ async def scale_bowl(bowl: Any, target_calories: float, customer_goal: str) -> S
             if w["tag"] != MacroTag.ADD_ON.value:
                 w["new_weight"] = w["orig_weight"] * multiplier
     else:
-        if customer_goal.lower().replace("_", " ") == CustomerGoal.FAT_LOSS.value.lower().replace("_", " "):
+        _cg = customer_goal.lower().replace("_", " ")
+        if _cg == CustomerGoal.FAT_LOSS.value.lower().replace("_", " ") or _cg == "weight loss":
             carb_reduction_factor = 0.60 
             for w in working_ingredients:
                 if w["tag"] == MacroTag.CARB.value:
@@ -154,7 +157,7 @@ async def scale_bowl(bowl: Any, target_calories: float, customer_goal: str) -> S
                     if w["tag"] != MacroTag.ADD_ON.value:
                         w["new_weight"] *= mult
 
-        elif customer_goal.lower().replace("_", " ") == CustomerGoal.MUSCLE_GAIN.value.lower().replace("_", " "):
+        elif _cg == CustomerGoal.MUSCLE_GAIN.value.lower().replace("_", " "):
             fiber_reduction_factor = 0.80
             for w in working_ingredients:
                 if w["tag"] == MacroTag.FIBER.value:
@@ -202,6 +205,12 @@ async def scale_bowl(bowl: Any, target_calories: float, customer_goal: str) -> S
                 for w in working_ingredients:
                     if w["tag"] != MacroTag.ADD_ON.value:
                         w["new_weight"] *= mult
+        else:
+            # Fallback scaling if goal matches nothing
+            mult = adjustable_target / base_adjustable_calories if base_adjustable_calories > 0 else 1.0
+            for w in working_ingredients:
+                if w["tag"] != MacroTag.ADD_ON.value:
+                    w["new_weight"] = w["orig_weight"] * mult
 
     final_calories = 0.0
     final_protein = 0.0
@@ -233,6 +242,7 @@ async def scale_bowl(bowl: Any, target_calories: float, customer_goal: str) -> S
         scaled_ingredients.append(
             ScaledIngredient(
                 id=w["item_id"],
+                ingredient_id=w["ingredient_id"],
                 name=w["name"],
                 macro_tag=w["tag"],
                 original_weight=round(orig_w, 2),
