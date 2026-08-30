@@ -63,6 +63,7 @@ async def create_raw_material(
 @router.get("/", response_model=PaginatedRawMaterials)
 async def get_raw_materials(
     search: Optional[str] = None,
+    stockout: Optional[bool] = False,
     page: int = Query(1, ge=1),
     size: int = Query(20, ge=1, le=100),
     current_user: User = Depends(get_current_user),
@@ -72,6 +73,9 @@ async def get_raw_materials(
     
     if search:
         query = query.where(RawMaterial.name.ilike(f"%{search}%"))
+        
+    if stockout:
+        query = query.where(RawMaterial.current_stock <= RawMaterial.stock_threshold)
         
     # Get total count
     count_query = select(func.count()).select_from(query.subquery())
