@@ -267,9 +267,11 @@ async def update_current_user(
 
 
 
+from fastapi import Request
 @router.post("/refresh", response_model=TokenResponse)
 async def refresh_access_token(
-    body: RefreshTokenRequest, 
+    request: Request,
+    body: RefreshTokenRequest = None, 
     db: AsyncSession = Depends(get_db)
 ):
     credentials_exception = HTTPException(
@@ -279,9 +281,17 @@ async def refresh_access_token(
     )
     
     try:
-        # 1. Decode the token using PyJWT
+        # 1. Get token from cookie or body
+        token = request.cookies.get("refresh_token")
+        if not token and body:
+            token = body.refresh_token
+            
+        if not token:
+            raise credentials_exception
+
+        # 2. Decode the token using PyJWT
         payload = jwt.decode(
-            body.refresh_token, 
+            token, 
             settings.secret_key, 
             algorithms=[settings.algorithm]
         )
