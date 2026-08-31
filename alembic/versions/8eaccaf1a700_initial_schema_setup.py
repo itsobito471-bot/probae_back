@@ -21,7 +21,9 @@ depends_on: Union[str, Sequence[str], None] = None
 def upgrade() -> None:
     """Upgrade schema."""
 
-    # --- documents table (required by users.profile_picture_id FK) ---
+    # --- documents table ---
+    # NOTE: ulid is added later by e6c654ca6a80_add_ulid_to_all_tables
+    # NOTE: updated_at is added later by 236fb457d162_add_updated_at_to_logs_via_
     op.create_table(
         'documents',
         sa.Column('id', sa.Integer(), nullable=False),
@@ -30,12 +32,12 @@ def upgrade() -> None:
         sa.Column('mime_type', sa.String(length=100), nullable=True),
         sa.Column('size', sa.Integer(), nullable=True),
         sa.Column('created_at', sa.DateTime(timezone=True), nullable=False),
-        sa.Column('updated_at', sa.DateTime(timezone=True), nullable=False),
         sa.PrimaryKeyConstraint('id'),
     )
     op.create_index(op.f('ix_documents_id'), 'documents', ['id'], unique=False)
 
-    # --- users table (referenced as FK by many later migrations) ---
+    # --- users table ---
+    # NOTE: ulid is added later by e6c654ca6a80_add_ulid_to_all_tables
     op.create_table(
         'users',
         sa.Column('id', sa.Integer(), nullable=False),
