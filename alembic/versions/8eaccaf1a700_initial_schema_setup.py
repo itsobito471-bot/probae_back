@@ -25,7 +25,6 @@ def upgrade() -> None:
     op.create_table(
         'documents',
         sa.Column('id', sa.Integer(), nullable=False),
-        sa.Column('ulid', sa.String(length=26), nullable=False),
         sa.Column('filename', sa.String(length=255), nullable=False),
         sa.Column('original_name', sa.String(length=255), nullable=True),
         sa.Column('mime_type', sa.String(length=100), nullable=True),
@@ -35,13 +34,11 @@ def upgrade() -> None:
         sa.PrimaryKeyConstraint('id'),
     )
     op.create_index(op.f('ix_documents_id'), 'documents', ['id'], unique=False)
-    op.create_index(op.f('ix_documents_ulid'), 'documents', ['ulid'], unique=True)
 
     # --- users table (referenced as FK by many later migrations) ---
     op.create_table(
         'users',
         sa.Column('id', sa.Integer(), nullable=False),
-        sa.Column('ulid', sa.String(length=26), nullable=False),
         sa.Column('username', sa.String(length=100), nullable=False),
         sa.Column('email', sa.String(length=255), nullable=False),
         sa.Column('password_hash', sa.String(length=255), nullable=False),
@@ -56,7 +53,6 @@ def upgrade() -> None:
         sa.PrimaryKeyConstraint('id'),
     )
     op.create_index(op.f('ix_users_id'), 'users', ['id'], unique=False)
-    op.create_index(op.f('ix_users_ulid'), 'users', ['ulid'], unique=True)
     op.create_index(op.f('ix_users_username'), 'users', ['username'], unique=True)
     op.create_index(op.f('ix_users_email'), 'users', ['email'], unique=True)
 
@@ -76,10 +72,8 @@ def downgrade() -> None:
     op.drop_table('system_settings')
     op.drop_index(op.f('ix_users_email'), table_name='users')
     op.drop_index(op.f('ix_users_username'), table_name='users')
-    op.drop_index(op.f('ix_users_ulid'), table_name='users')
     op.drop_index(op.f('ix_users_id'), table_name='users')
     op.drop_table('users')
-    op.drop_index(op.f('ix_documents_ulid'), table_name='documents')
     op.drop_index(op.f('ix_documents_id'), table_name='documents')
     op.drop_table('documents')
     op.execute("DROP TYPE IF EXISTS userrole")
