@@ -31,7 +31,7 @@ app = FastAPI(
 app.add_middleware(
     CORSMiddleware,
     # Allow your Next.js frontend origin
-    allow_origins=["http://localhost:3000","http://localhost:3001"], 
+    allow_origins=["http://localhost:3000","http://localhost:3001","https://probae.in","https://www.probae.in"], 
     
     # CRITICAL: Must be True so the frontend can receive the HttpOnly Refresh Token Cookie!
     allow_credentials=True, 
