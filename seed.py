@@ -4,6 +4,20 @@ from sqlalchemy.ext.asyncio import AsyncSession
 # Core imports
 from app.core.database import engine, Base, AsyncSessionLocal
 
+# Import ALL domain models so SQLAlchemy's mapper can resolve
+# all string-based relationship references (e.g. relationship("Packaging"))
+import app.domains.users.models
+import app.domains.bowls.models
+import app.domains.packaging.models
+import app.domains.ingredients.models
+import app.domains.raw_materials.models
+import app.domains.customers.models
+import app.domains.orders.models
+import app.domains.plans.models
+import app.domains.vendors.models
+import app.domains.documents.models
+import app.domains.audit.models
+
 # Domain Seeder Imports
 from app.domains.users.seed import seed_users
 from app.domains.bowls.seed import seed_meal_categories
