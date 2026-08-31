@@ -201,14 +201,60 @@ async def checkout_order(req: OrderCheckoutRequest, db: AsyncSession = Depends(g
 @router.patch("/{ulid}/status", response_model=dict)
 async def update_order_status(ulid: str, req: OrderStatusUpdateRequest, db: AsyncSession = Depends(get_db)):
     order = await db.scalar(
-        select(Order).options(selectinload(Order.items)).where(Order.ulid == ulid)
+        select(Order)
+        .options(selectinload(Order.items).selectinload(OrderItem.bowl))
+        .where(Order.ulid == ulid)
     )
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
         
     old_status = order.status
     order.status = req.status
-    
+
+    # Auto-deduct packaging stock when order transitions to PREPARED (packed)
+    if req.status == OrderStatus.PREPARED and old_status != OrderStatus.PREPARED:
+        from app.domains.packaging.models import Packaging, PackagingItemLink, PackagingComponentStockLog
+
+        for item in order.items:
+            bowl = item.bowl
+            if not bowl or not bowl.packaging_id:
+                continue
+
+            # Load packaging with its component links and components
+            packaging_result = await db.execute(
+                select(Packaging)
+                .options(selectinload(Packaging.components).selectinload(PackagingItemLink.component))
+                .where(Packaging.id == bowl.packaging_id)
+            )
+            packaging = packaging_result.scalar_one_or_none()
+            if not packaging:
+                continue
+
+            for link in packaging.components:
+                component = link.component
+                qty_to_deduct = link.quantity * item.quantity
+                prev_stock = float(component.current_stock)
+                new_stock = prev_stock - qty_to_deduct
+
+                if new_stock < 0:
+                    raise HTTPException(
+                        status_code=400,
+                        detail=f"Insufficient stock for packaging component '{component.name}'. "
+                               f"Required: {qty_to_deduct}, Available: {prev_stock}"
+                    )
+
+                component.current_stock = new_stock
+                stock_log = PackagingComponentStockLog(
+                    component_id=component.id,
+                    quantity_change=-qty_to_deduct,
+                    previous_stock=prev_stock,
+                    new_stock=new_stock,
+                    description=f"Auto-deducted when order packed",
+                    order_ulid=order.ulid,
+                    created_by_id=None,
+                )
+                db.add(stock_log)
+
     if req.status == OrderStatus.DELIVERED and old_status != OrderStatus.DELIVERED:
         from app.tasks.celery_tasks import task_create_calorie_log_on_delivery
         task_create_calorie_log_on_delivery.delay(order.ulid)

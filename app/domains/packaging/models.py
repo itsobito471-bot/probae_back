@@ -12,6 +12,10 @@ class PackagingComponent(Base, TimestampMixin):
     name: Mapped[str] = mapped_column(String(255), unique=True, index=True, nullable=False)
     cost: Mapped[float] = mapped_column(Numeric(10, 2), default=0.0, nullable=False)
 
+    # --- Stock Management ---
+    current_stock: Mapped[float] = mapped_column(Numeric(10, 2), nullable=False, server_default="0.0")
+    stock_threshold: Mapped[float] = mapped_column(Numeric(10, 2), nullable=False, server_default="0.0")
+
 
 class Packaging(Base, TimestampMixin):
     __tablename__ = "packaging"
@@ -36,3 +40,24 @@ class PackagingItemLink(Base):
 
     packaging: Mapped["Packaging"] = relationship("Packaging", back_populates="components")
     component: Mapped["PackagingComponent"] = relationship("PackagingComponent")
+
+
+class PackagingComponentStockLog(Base, TimestampMixin):
+    __tablename__ = "packaging_component_stock_logs"
+
+    id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    ulid: Mapped[str] = mapped_column(String(26), default=generate_ulid, unique=True, index=True, nullable=False)
+
+    component_id: Mapped[int] = mapped_column(ForeignKey("packaging_components.id", ondelete="CASCADE"), nullable=False, index=True)
+    component: Mapped["PackagingComponent"] = relationship("PackagingComponent")
+
+    quantity_change: Mapped[float] = mapped_column(Numeric(10, 2), nullable=False)
+    previous_stock: Mapped[float] = mapped_column(Numeric(10, 2), nullable=False)
+    new_stock: Mapped[float] = mapped_column(Numeric(10, 2), nullable=False)
+
+    description: Mapped[str] = mapped_column(Text, nullable=True)
+    # Populated when deduction is triggered automatically by an order pack action
+    order_ulid: Mapped[str] = mapped_column(String(26), nullable=True)
+
+    created_by_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    created_by: Mapped["User"] = relationship("User")

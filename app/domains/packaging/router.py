@@ -8,10 +8,11 @@ from sqlalchemy.orm import selectinload
 from app.core.database import get_db
 from app.core.security import get_current_user
 from app.domains.users.models import User
-from .models import PackagingComponent, Packaging, PackagingItemLink
+from .models import PackagingComponent, Packaging, PackagingItemLink, PackagingComponentStockLog
 from .schemas import (
     PackagingComponentCreate, PackagingComponentUpdate, PackagingComponentResponse, PaginatedPackagingComponentResponse,
-    PackagingCreate, PackagingUpdate, PackagingResponse, PaginatedPackagingResponse
+    PackagingCreate, PackagingUpdate, PackagingResponse, PaginatedPackagingResponse,
+    PackagingStockAdjustmentRequest, PackagingStockThresholdRequest, PackagingComponentStockLogResponse,
 )
 
 router = APIRouter()
@@ -89,6 +90,95 @@ async def delete_packaging_component(
         raise HTTPException(status_code=404, detail="Component not found")
     await db.delete(comp)
     await db.commit()
+
+# --- Packaging Component Stock ---
+
+@router.post("/components/{ulid}/stock", response_model=PackagingComponentResponse)
+async def adjust_packaging_component_stock(
+    ulid: str,
+    adjustment: PackagingStockAdjustmentRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Manually add or remove stock from a packaging component and log the transaction."""
+    comp = await db.scalar(select(PackagingComponent).where(PackagingComponent.ulid == ulid))
+    if not comp:
+        raise HTTPException(status_code=404, detail="Component not found")
+
+    previous_stock = float(comp.current_stock)
+    new_stock = previous_stock + adjustment.quantity_change
+
+    if new_stock < 0:
+        raise HTTPException(status_code=400, detail="Stock cannot go below zero.")
+
+    comp.current_stock = new_stock
+
+    log = PackagingComponentStockLog(
+        component_id=comp.id,
+        quantity_change=adjustment.quantity_change,
+        previous_stock=previous_stock,
+        new_stock=new_stock,
+        description=adjustment.description,
+        created_by_id=current_user.id,
+    )
+    db.add(log)
+    await db.commit()
+    await db.refresh(comp)
+    return comp
+
+
+@router.patch("/components/{ulid}/stock-threshold", response_model=PackagingComponentResponse)
+async def update_packaging_component_threshold(
+    ulid: str,
+    data: PackagingStockThresholdRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Update the low-stock threshold for a packaging component."""
+    comp = await db.scalar(select(PackagingComponent).where(PackagingComponent.ulid == ulid))
+    if not comp:
+        raise HTTPException(status_code=404, detail="Component not found")
+    comp.stock_threshold = data.stock_threshold
+    await db.commit()
+    await db.refresh(comp)
+    return comp
+
+
+@router.get("/components/{ulid}/stock-logs")
+async def get_packaging_component_stock_logs(
+    ulid: str,
+    page: int = Query(1, ge=1),
+    size: int = Query(20, ge=1, le=100),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Get paginated stock log history for a packaging component."""
+    comp = await db.scalar(select(PackagingComponent).where(PackagingComponent.ulid == ulid))
+    if not comp:
+        raise HTTPException(status_code=404, detail="Component not found")
+
+    count = await db.scalar(
+        select(func.count()).select_from(
+            select(PackagingComponentStockLog).where(PackagingComponentStockLog.component_id == comp.id).subquery()
+        )
+    )
+
+    logs_result = await db.execute(
+        select(PackagingComponentStockLog)
+        .options(selectinload(PackagingComponentStockLog.created_by))
+        .where(PackagingComponentStockLog.component_id == comp.id)
+        .order_by(PackagingComponentStockLog.created_at.desc())
+        .offset((page - 1) * size)
+        .limit(size)
+    )
+    logs = logs_result.scalars().all()
+
+    return {
+        "items": [PackagingComponentStockLogResponse.from_orm_with_user(l) for l in logs],
+        "total": count,
+        "page": page,
+        "size": size,
+    }
 
 # --- Packaging Bundles ---
 @router.post("/", response_model=PackagingResponse, status_code=201)
