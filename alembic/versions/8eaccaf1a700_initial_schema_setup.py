@@ -44,7 +44,7 @@ def upgrade() -> None:
         sa.Column('email', sa.String(length=255), nullable=False),
         sa.Column('password_hash', sa.String(length=255), nullable=False),
         sa.Column('full_name', sa.String(length=100), nullable=True),
-        sa.Column('role', sa.Enum('admin', 'customer', 'delivery', name='userrole'), nullable=False, server_default='customer'),
+        sa.Column('role', sa.Enum('ADMIN', 'CUSTOMER', 'DELIVERY', name='userrole'), nullable=False, server_default='CUSTOMER'),
         sa.Column('is_active', sa.Boolean(), nullable=False, server_default='true'),
         sa.Column('two_factor_enabled', sa.Boolean(), nullable=False, server_default='false'),
         sa.Column('two_factor_secret', sa.String(length=100), nullable=True),
