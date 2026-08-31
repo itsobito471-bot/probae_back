@@ -28,9 +28,8 @@ def upgrade() -> None:
         'documents',
         sa.Column('id', sa.Integer(), nullable=False),
         sa.Column('filename', sa.String(length=255), nullable=False),
-        sa.Column('original_name', sa.String(length=255), nullable=True),
-        sa.Column('mime_type', sa.String(length=100), nullable=True),
-        sa.Column('size', sa.Integer(), nullable=True),
+        sa.Column('content_type', sa.String(length=100), nullable=False),
+        sa.Column('size_bytes', sa.Integer(), nullable=False),
         sa.Column('created_at', sa.DateTime(timezone=True), nullable=False),
         sa.PrimaryKeyConstraint('id'),
     )
