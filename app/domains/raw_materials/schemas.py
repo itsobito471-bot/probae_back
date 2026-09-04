@@ -32,10 +32,10 @@ class PaginatedRawMaterialCategories(BaseModel):
 class RawMaterialBase(BaseModel):
     name: str
     description: Optional[str] = None
-    price: float = Field(..., gt=0, description="Price per unit (Legacy)")
-    standard_price: Optional[float] = Field(None, gt=0, description="Price per unit (Standard)")
-    actual_price: Optional[float] = Field(None, gt=0, description="Effective Cost based on Yield")
-    yield_grams: Optional[float] = Field(None, gt=0, description="Yield in grams/ml per unit")
+    price: float = Field(..., ge=0, description="Price per unit (Legacy)")
+    standard_price: Optional[float] = Field(None, ge=0, description="Price per unit (Standard)")
+    actual_price: Optional[float] = Field(None, ge=0, description="Effective Cost based on Yield")
+    yield_grams: Optional[float] = Field(None, ge=0, description="Yield in grams/ml per unit")
     yield_percentage: Optional[float] = Field(None, ge=0, description="Yield Percentage")
     previous_price: Optional[float] = Field(None, description="Previous standard price for variance")
     unit: UnitType
@@ -56,10 +56,10 @@ class RawMaterialCreate(RawMaterialBase):
 class RawMaterialUpdate(BaseModel):
     name: Optional[str] = None
     description: Optional[str] = None
-    price: Optional[float] = Field(None, gt=0)
-    standard_price: Optional[float] = Field(None, gt=0)
-    actual_price: Optional[float] = Field(None, gt=0)
-    yield_grams: Optional[float] = Field(None, gt=0)
+    price: Optional[float] = Field(None, ge=0)
+    standard_price: Optional[float] = Field(None, ge=0)
+    actual_price: Optional[float] = Field(None, ge=0)
+    yield_grams: Optional[float] = Field(None, ge=0)
     yield_percentage: Optional[float] = Field(None, ge=0)
     previous_price: Optional[float] = None
     unit: Optional[UnitType] = None
