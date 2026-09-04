@@ -132,11 +132,11 @@ def _inject_bowl_extras(bowl: Bowl):
             total_fib += float(link.ingredient.total_fiber) * ratio
             total_weight += float(link.weight_g_or_ml)
             
-    bowl.total_calories = round(total_cal, 2)
-    bowl.total_protein = round(total_pro, 2)
-    bowl.total_carbs = round(total_carb, 2)
-    bowl.total_fat = round(total_fat, 2)
-    bowl.total_fiber = round(total_fib, 2)
+    bowl.total_calories = round(total_cal)
+    bowl.total_protein = round(total_pro)
+    bowl.total_carbs = round(total_carb)
+    bowl.total_fat = round(total_fat)
+    bowl.total_fiber = round(total_fib)
     bowl.total_weight = round(total_weight, 2)
     
     if bowl.created_by:

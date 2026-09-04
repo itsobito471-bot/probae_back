@@ -42,11 +42,11 @@ def upgrade() -> None:
                 irm.ingredient_id,
                 SUM(irm.weight_g_or_ml) AS total_weight,
                 SUM((COALESCE(r.actual_price, r.standard_price, r.price) / CASE WHEN r.unit IN ('KG', 'L') THEN 1000.0 ELSE 1.0 END) * irm.weight_g_or_ml) AS total_price,
-                SUM(COALESCE(r.calories, 0) * (irm.weight_g_or_ml / 100.0)) AS total_calories,
-                SUM(COALESCE(r.protein, 0) * (irm.weight_g_or_ml / 100.0)) AS total_protein,
-                SUM(COALESCE(r.carbs, 0) * (irm.weight_g_or_ml / 100.0)) AS total_carbs,
-                SUM(COALESCE(r.fat, 0) * (irm.weight_g_or_ml / 100.0)) AS total_fat,
-                SUM(COALESCE(r.fiber, 0) * (irm.weight_g_or_ml / 100.0)) AS total_fiber
+                ROUND(SUM(COALESCE(r.calories, 0) * (irm.weight_g_or_ml / 100.0))) AS total_calories,
+                ROUND(SUM(COALESCE(r.protein, 0) * (irm.weight_g_or_ml / 100.0))) AS total_protein,
+                ROUND(SUM(COALESCE(r.carbs, 0) * (irm.weight_g_or_ml / 100.0))) AS total_carbs,
+                ROUND(SUM(COALESCE(r.fat, 0) * (irm.weight_g_or_ml / 100.0))) AS total_fat,
+                ROUND(SUM(COALESCE(r.fiber, 0) * (irm.weight_g_or_ml / 100.0))) AS total_fiber
             FROM ingredient_raw_materials irm
             JOIN raw_materials r ON r.id = irm.raw_material_id
             WHERE irm.ingredient_id IN (
@@ -92,11 +92,11 @@ def downgrade() -> None:
                 irm.ingredient_id,
                 SUM(irm.weight_g_or_ml) AS total_weight,
                 SUM((r.price / CASE WHEN r.unit IN ('KG', 'L') THEN 1000.0 ELSE 1.0 END) * irm.weight_g_or_ml) AS total_price,
-                SUM(COALESCE(r.calories, 0) * (irm.weight_g_or_ml / 100.0)) AS total_calories,
-                SUM(COALESCE(r.protein, 0) * (irm.weight_g_or_ml / 100.0)) AS total_protein,
-                SUM(COALESCE(r.carbs, 0) * (irm.weight_g_or_ml / 100.0)) AS total_carbs,
-                SUM(COALESCE(r.fat, 0) * (irm.weight_g_or_ml / 100.0)) AS total_fat,
-                SUM(COALESCE(r.fiber, 0) * (irm.weight_g_or_ml / 100.0)) AS total_fiber
+                ROUND(SUM(COALESCE(r.calories, 0) * (irm.weight_g_or_ml / 100.0))) AS total_calories,
+                ROUND(SUM(COALESCE(r.protein, 0) * (irm.weight_g_or_ml / 100.0))) AS total_protein,
+                ROUND(SUM(COALESCE(r.carbs, 0) * (irm.weight_g_or_ml / 100.0))) AS total_carbs,
+                ROUND(SUM(COALESCE(r.fat, 0) * (irm.weight_g_or_ml / 100.0))) AS total_fat,
+                ROUND(SUM(COALESCE(r.fiber, 0) * (irm.weight_g_or_ml / 100.0))) AS total_fiber
             FROM ingredient_raw_materials irm
             JOIN raw_materials r ON r.id = irm.raw_material_id
             WHERE irm.ingredient_id IN (
