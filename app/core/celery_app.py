@@ -1,4 +1,5 @@
 from celery import Celery
+from celery.schedules import crontab
 import os
 
 # You would normally put these in your settings/environment variables
@@ -15,13 +16,12 @@ celery_app.conf.update(
     task_serializer="json",
     accept_content=["json"],
     result_serializer="json",
-    timezone="UTC",
-    enable_utc=True,
-    # Example Celery Beat schedule configuration:
-    # beat_schedule={
-    #     'generate-daily-orders-midnight': {
-    #         'task': 'app.tasks.celery_tasks.task_generate_daily_orders',
-    #         'schedule': crontab(minute=0, hour=0),
-    #     },
-    # }
+    timezone="Asia/Kolkata",
+    enable_utc=False,
+    beat_schedule={
+        'generate-daily-orders-noon': {
+            'task': 'generate_daily_plan_orders',
+            'schedule': crontab(minute=0, hour=12),
+        },
+    }
 )
