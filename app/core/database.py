@@ -7,7 +7,12 @@ from redis import asyncio as aioredis
 engine = create_async_engine(
     settings.database_url,
     echo=(settings.environment == "development"),  # Logs SQL only in dev
-    future=True
+    future=True,
+    pool_size=10,          # Keep 10 connections ready
+    max_overflow=10,       # Allow up to 10 more if under heavy load
+    pool_timeout=30,       # Wait 30s before throwing an error if DB is busy
+    pool_recycle=1800,     # Refresh connections every 30 mins so they don't go stale
+    pool_pre_ping=True     # Test connection liveness upon checkout
 )
 
 # 2. Create an async session factory
