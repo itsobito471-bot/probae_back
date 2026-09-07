@@ -49,6 +49,7 @@ async def create_ingredient(
         total_carbs=0,
         total_fat=0,
         total_fiber=0,
+        yield_weight=payload.yield_weight,
     )
     db.add(new_ingredient)
     await db.flush()  # To get new_ingredient.id
@@ -193,6 +194,13 @@ async def update_ingredient(
         ingredient.image_filename = payload.image_filename
     if payload.background_image_filename is not None:
         ingredient.background_image_filename = payload.background_image_filename
+    if "yield_weight" in payload.model_dump(exclude_unset=True):
+        ingredient.yield_weight = payload.yield_weight
+
+    if payload.yield_weight is not None:
+        ingredient.yield_weight = payload.yield_weight
+    elif hasattr(payload, "yield_weight") and "yield_weight" in payload.model_dump(exclude_unset=True) and payload.yield_weight is None:
+        ingredient.yield_weight = None
 
     # If raw_materials are provided, recalculate everything
     if payload.raw_materials is str or payload.raw_materials is not None:

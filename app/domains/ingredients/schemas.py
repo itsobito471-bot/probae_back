@@ -20,6 +20,7 @@ class IngredientCreate(BaseModel):
     description: Optional[str] = None
     image_filename: Optional[str] = None
     background_image_filename: Optional[str] = None
+    yield_weight: Optional[float] = None
     raw_materials: List[RawMaterialWeightInput] = []
 
 class IngredientUpdate(BaseModel):
@@ -28,6 +29,7 @@ class IngredientUpdate(BaseModel):
     description: Optional[str] = None
     image_filename: Optional[str] = None
     background_image_filename: Optional[str] = None
+    yield_weight: Optional[float] = None
     raw_materials: Optional[List[RawMaterialWeightInput]] = None
 
 class IngredientResponse(BaseModel):
@@ -46,6 +48,7 @@ class IngredientResponse(BaseModel):
     total_carbs: float
     total_fat: float
     total_fiber: float
+    yield_weight: Optional[float] = None
     
     created_at: datetime
     updated_at: datetime

@@ -25,6 +25,7 @@ class Ingredient(Base, TimestampMixin):
     total_carbs: Mapped[float] = mapped_column(Numeric(10, 2), default=0, nullable=False)
     total_fat: Mapped[float] = mapped_column(Numeric(10, 2), default=0, nullable=False)
     total_fiber: Mapped[float] = mapped_column(Numeric(10, 2), default=0, nullable=False)
+    yield_weight: Mapped[float] = mapped_column(Numeric(10, 2), nullable=True)
 
     # --- Audit & Relations ---
     created_by_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=True)

@@ -76,7 +76,7 @@ async def create_bowl(
             raise HTTPException(status_code=404, detail=f"Ingredient {ident} not found")
         
         # Math: (Selected Weight / Base Recipe Weight) * Base Value
-        base_weight = float(ingredient.total_weight)
+        base_weight = float(ingredient.yield_weight) if ingredient.yield_weight else float(ingredient.total_weight)
         base_price = float(ingredient.total_price)
         
         if base_weight > 0:
@@ -122,7 +122,7 @@ def _inject_bowl_extras(bowl: Bowl):
         link.ingredient_ulid = link.ingredient.ulid
         link.ingredient_name = link.ingredient.name
         
-        base_weight = float(link.ingredient.total_weight)
+        base_weight = float(link.ingredient.yield_weight) if link.ingredient.yield_weight else float(link.ingredient.total_weight)
         if base_weight > 0 and link.weight_g_or_ml > 0:
             ratio = float(link.weight_g_or_ml) / base_weight
             total_cal += float(link.ingredient.total_calories) * ratio
@@ -318,7 +318,7 @@ async def update_bowl(
                 ident = ing_input.ingredient_ulid or ing_input.ingredient_id
                 raise HTTPException(status_code=404, detail=f"Ingredient {ident} not found")
             
-            base_weight = float(ingredient.total_weight)
+            base_weight = float(ingredient.yield_weight) if ingredient.yield_weight else float(ingredient.total_weight)
             base_price = float(ingredient.total_price)
             
             if base_weight > 0:
