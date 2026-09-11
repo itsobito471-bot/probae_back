@@ -60,8 +60,8 @@ async def create_ingredient(
             raise HTTPException(status_code=404, detail=f"Raw material with ID {rm_input.raw_material_id} not found.")
 
         # Math
-        fraction = rm_input.weight_g_or_ml / 100.0
         base_unit_weight = get_base_unit_weight(raw.unit)
+        fraction = rm_input.weight_g_or_ml / base_unit_weight
         effective_price = float(raw.actual_price if raw.actual_price is not None else (raw.standard_price if raw.standard_price is not None else raw.price))
         price_contribution = (effective_price / base_unit_weight) * rm_input.weight_g_or_ml
 
@@ -222,8 +222,8 @@ async def update_ingredient(
             if not raw:
                 raise HTTPException(status_code=404, detail=f"Raw material with ID {rm_input.raw_material_id} not found.")
 
-            fraction = rm_input.weight_g_or_ml / 100.0
             base_unit_weight = get_base_unit_weight(raw.unit)
+            fraction = rm_input.weight_g_or_ml / base_unit_weight
             effective_price = float(raw.actual_price if raw.actual_price is not None else (raw.standard_price if raw.standard_price is not None else raw.price))
             price_contribution = (effective_price / base_unit_weight) * rm_input.weight_g_or_ml
 
