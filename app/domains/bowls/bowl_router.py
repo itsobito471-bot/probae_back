@@ -140,7 +140,7 @@ def _inject_bowl_extras(bowl: Bowl):
     bowl.total_weight = round(total_weight, 2)
     
     if bowl.created_by:
-        bowl.created_by_name = f"{bowl.created_by.first_name} {bowl.created_by.last_name}".strip()
+        bowl.created_by_name = bowl.created_by.full_name or ""
     else:
         bowl.created_by_name = "Admin"
 
