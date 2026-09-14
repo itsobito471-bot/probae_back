@@ -87,7 +87,16 @@ async def list_orders(
             "target_date": o.target_date,
             "total_order_price": o.total_order_price,
             "items": items,
-            "customer": {"ulid": o.customer.ulid, "name": o.customer.name} if o.customer else None
+            "customer": {
+                "ulid": o.customer.ulid, 
+                "name": o.customer.name, 
+                "phone": getattr(o.customer, 'phone', None), 
+                "email": getattr(o.customer, 'email', None),
+                "address": getattr(o.customer, 'address', None),
+                "latitude": getattr(o.customer, 'latitude', None),
+                "longitude": getattr(o.customer, 'longitude', None),
+                "image_filename": getattr(o.customer, 'image_filename', None)
+            } if o.customer else None
         })
         
     return {

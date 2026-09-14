@@ -22,6 +22,11 @@ class OrderItemSchema(BaseModel):
 class OrderCustomerSchema(BaseModel):
     ulid: str
     name: str
+    phone: Optional[str] = None
+    address: Optional[str] = None
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
+    image_filename: Optional[str] = None
 
 class OrderSchema(BaseModel):
     id: int

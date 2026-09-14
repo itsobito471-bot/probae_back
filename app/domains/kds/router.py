@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from datetime import date
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 
 from app.core.database import get_db
 from app.domains.orders.models import Order, OrderItem, OrderStatus
@@ -19,7 +19,11 @@ from .schemas import PrepListResponse, PrepComponent, PrepRawMaterial, PrepStatu
 router = APIRouter(prefix="/kds", tags=["Kitchen Display System"])
 
 @router.get("/prep-list", response_model=PrepListResponse)
-async def get_prep_list(target_date: date = Query(...), db: AsyncSession = Depends(get_db)):
+async def get_prep_list(
+    target_date: date = Query(...), 
+    meal_slot: Optional[str] = Query(None),
+    db: AsyncSession = Depends(get_db)
+):
     # 1. Fetch Order Items for the given date (exclude cancelled)
     items_query = (
         select(OrderItem)
@@ -29,6 +33,8 @@ async def get_prep_list(target_date: date = Query(...), db: AsyncSession = Depen
             Order.status != OrderStatus.CANCELLED
         )
     )
+    if meal_slot:
+        items_query = items_query.where(OrderItem.meal_slot == meal_slot)
     items_res = await db.scalars(items_query)
     order_items = items_res.all()
 
@@ -165,7 +171,11 @@ async def update_prep_status(ingredient_id: int, req: PrepStatusUpdateRequest, t
 
 
 @router.get("/assembly-list", response_model=AssemblyListResponse)
-async def get_assembly_list(target_date: date = Query(...), db: AsyncSession = Depends(get_db)):
+async def get_assembly_list(
+    target_date: date = Query(...), 
+    meal_slot: Optional[str] = Query(None),
+    db: AsyncSession = Depends(get_db)
+):
     from sqlalchemy.orm import selectinload
     items_query = (
         select(OrderItem)
@@ -174,10 +184,13 @@ async def get_assembly_list(target_date: date = Query(...), db: AsyncSession = D
             Order.target_date == target_date,
             Order.status != OrderStatus.CANCELLED
         )
-        .options(
-            selectinload(OrderItem.bowl).selectinload(Bowl.packaging),
-            selectinload(OrderItem.order).selectinload(Order.customer)
-        )
+    )
+    if meal_slot:
+        items_query = items_query.where(OrderItem.meal_slot == meal_slot)
+    
+    items_query = items_query.options(
+        selectinload(OrderItem.bowl).selectinload(Bowl.packaging),
+        selectinload(OrderItem.order).selectinload(Order.customer)
     )
     items_res = await db.scalars(items_query)
     order_items = items_res.all()
