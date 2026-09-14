@@ -65,6 +65,7 @@ class UserUpdate(BaseModel):
     full_name: str | None = None
 
 
+from typing import Optional
 class RefreshTokenRequest(BaseModel):
-    refresh_token: str
+    refresh_token: Optional[str] = None
 
