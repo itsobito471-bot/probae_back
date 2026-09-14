@@ -73,7 +73,8 @@ async def list_orders(
                 "adjusted_calories": i.adjusted_calories,
                 "adjusted_macros": i.adjusted_macros,
                 "adjusted_price": i.adjusted_price,
-                "adjusted_ingredients": i.adjusted_ingredients
+                "adjusted_ingredients": i.adjusted_ingredients,
+                "assembly_status": i.assembly_status
             })
             
         formatted_orders.append({
@@ -292,6 +293,7 @@ async def get_order(ulid: str, db: AsyncSession = Depends(get_db)):
             "adjusted_macros": i.adjusted_macros,
             "adjusted_price": float(i.adjusted_price),
             "adjusted_ingredients": i.adjusted_ingredients,
+            "assembly_status": i.assembly_status,
         })
 
     customer = order.customer

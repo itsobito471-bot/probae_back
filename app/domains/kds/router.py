@@ -1,3 +1,4 @@
+from pydantic import BaseModel
 from sqlalchemy import select
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -165,7 +166,6 @@ async def update_prep_status(ingredient_id: int, req: PrepStatusUpdateRequest, t
 
 @router.get("/assembly-list", response_model=AssemblyListResponse)
 async def get_assembly_list(target_date: date = Query(...), db: AsyncSession = Depends(get_db)):
-    # 1. Fetch Order Items for the given date (exclude cancelled)
     from sqlalchemy.orm import selectinload
     items_query = (
         select(OrderItem)
@@ -175,90 +175,73 @@ async def get_assembly_list(target_date: date = Query(...), db: AsyncSession = D
             Order.status != OrderStatus.CANCELLED
         )
         .options(
-            selectinload(OrderItem.bowl).selectinload(Bowl.packaging)
+            selectinload(OrderItem.bowl).selectinload(Bowl.packaging),
+            selectinload(OrderItem.order).selectinload(Order.customer)
         )
     )
     items_res = await db.scalars(items_query)
     order_items = items_res.all()
 
     total_bowls = 0
-    # bowl_id -> { "name", "packaging_name", "quantity", "components": { ingredient_id -> weight } }
-    bowl_totals: Dict[int, Dict[str, Any]] = {}
+    bowls_resp = []
 
     for item in order_items:
         total_bowls += item.quantity
-        bowl_id = item.bowl_id
         
-        if bowl_id not in bowl_totals:
-            bowl_name = item.bowl.name if item.bowl else "Unknown Bowl"
-            packaging_name = None
-            if item.bowl and hasattr(item.bowl, 'packaging') and item.bowl.packaging:
-                packaging_name = item.bowl.packaging.name
-                
-            bowl_totals[bowl_id] = {
-                "name": bowl_name,
-                "packaging_name": packaging_name,
-                "quantity": 0,
-                "components": {} # ing_id -> { name, weight }
-            }
+        bowl_name = item.bowl.name if item.bowl else "Unknown Bowl"
+        packaging_name = None
+        if item.bowl and hasattr(item.bowl, 'packaging') and item.bowl.packaging:
+            packaging_name = item.bowl.packaging.name
             
-        bowl_totals[bowl_id]["quantity"] += item.quantity
-        
-        # Aggregate component weights for this bowl type
+        customer_name = item.order.customer.name if item.order and item.order.customer else "Unknown Customer"
+
+        comp_list = []
         for ing in item.adjusted_ingredients:
-            ing_id = ing.get("ingredient_id")
-            if not ing_id:
-                # Fallback for legacy orders: ing.get("id") is BowlIngredient.id
-                bi_id = ing.get("id")
-                if bi_id:
-                    # Resolve to Ingredient ID
-                    from app.domains.bowls.models import BowlIngredient
-                    
-                    bi = await db.scalar(select(BowlIngredient).where(BowlIngredient.id == bi_id))
-                    if bi:
-                        ing_id = bi.ingredient_id
-            
+            ing_id = ing.get("ingredient_id") or ing.get("id")
             if not ing_id:
                 continue
                 
             weight_val = ing.get("new_weight") if "new_weight" in ing else ing.get("weight_g_or_ml", 0.0)
             weight = float(weight_val) * item.quantity
             
-            if ing_id not in bowl_totals[bowl_id]["components"]:
-                bowl_totals[bowl_id]["components"][ing_id] = {
-                    "name": ing.get("name", "Unknown"),
-                    "weight": 0.0
-                }
-            bowl_totals[bowl_id]["components"][ing_id]["weight"] += weight
-
-    # Build response
-    bowls_resp = []
-    for b_id, data in bowl_totals.items():
-        comp_list = []
-        for ing_id, comp_data in data["components"].items():
             comp_list.append(
                 AssemblyComponent(
                     ingredient_id=ing_id,
-                    name=comp_data["name"],
-                    weight_needed=round(comp_data["weight"], 2)
+                    name=ing.get("name", "Unknown"),
+                    weight_needed=round(weight, 2)
                 )
             )
+        
         comp_list.sort(key=lambda x: x.name)
         
         bowls_resp.append(
             AssemblyBowl(
-                bowl_id=b_id,
-                bowl_name=data["name"],
-                packaging_name=data["packaging_name"],
-                quantity=data["quantity"],
+                order_item_ulid=item.ulid,
+                bowl_id=item.bowl_id,
+                bowl_name=bowl_name,
+                customer_name=customer_name,
+                packaging_name=packaging_name,
+                quantity=item.quantity,
+                assembly_status=item.assembly_status,
                 components=comp_list
             )
         )
-        
-    bowls_resp.sort(key=lambda x: x.bowl_name)
 
     return AssemblyListResponse(
         target_date=target_date,
         total_bowls=total_bowls,
         bowls=bowls_resp
     )
+
+class AssemblyStatusUpdateRequest(BaseModel):
+    status: str
+
+@router.patch("/assembly-list/{order_item_ulid}/status")
+async def update_assembly_status(order_item_ulid: str, req: AssemblyStatusUpdateRequest, db: AsyncSession = Depends(get_db)):
+    item = await db.scalar(select(OrderItem).where(OrderItem.ulid == order_item_ulid))
+    if not item:
+        raise HTTPException(status_code=404, detail="Order item not found")
+        
+    item.assembly_status = req.status
+    await db.commit()
+    return {"success": True, "status": item.assembly_status}

@@ -52,6 +52,7 @@ class OrderItem(Base, TimestampMixin):
     adjusted_macros: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
     adjusted_price: Mapped[float] = mapped_column(Numeric(10, 2), nullable=False)
     adjusted_ingredients: Mapped[list] = mapped_column(JSON, nullable=False, default=list)
+    assembly_status: Mapped[str] = mapped_column(String(20), default="PENDING", nullable=False)
 
     # Relationships
     order: Mapped["Order"] = relationship("Order", back_populates="items")

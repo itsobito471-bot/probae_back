@@ -32,10 +32,13 @@ class AssemblyComponent(BaseModel):
     weight_needed: float
 
 class AssemblyBowl(BaseModel):
+    order_item_ulid: str
     bowl_id: int
     bowl_name: str
+    customer_name: Optional[str]
     packaging_name: Optional[str]
     quantity: int
+    assembly_status: str
     components: List[AssemblyComponent]
 
 class AssemblyListResponse(BaseModel):

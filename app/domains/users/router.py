@@ -66,7 +66,7 @@ async def login_user(
         max_age=settings.refresh_token_expire_days * 24 * 60 * 60
     )
 
-    return TokenResponse(access_token=access_token, role=user.role.value)
+    return TokenResponse(access_token=access_token, refresh_token=refresh_token, role=user.role.value)
 
 
 
