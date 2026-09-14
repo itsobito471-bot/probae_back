@@ -65,7 +65,7 @@ class PackagingComponentStockLogResponse(BaseModel):
             description=log.description,
             order_ulid=log.order_ulid,
             created_at=log.created_at,
-            created_by={"id": log.created_by.id, "name": log.created_by.name} if log.created_by else None,
+            created_by={"id": log.created_by.id, "name": log.created_by.full_name} if log.created_by else None,
         )
 
 

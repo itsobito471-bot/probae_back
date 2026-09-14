@@ -67,6 +67,7 @@ async def list_orders(
                 "ulid": i.ulid,
                 "bowl_id": i.bowl_id,
                 "bowl_name": i.bowl.name if i.bowl else "Unknown",
+            "image_filename": getattr(i.bowl, "image_filename", None) if i.bowl else None,
                 "meal_slot": i.meal_slot,
                 "quantity": i.quantity,
                 "adjusted_calories": i.adjusted_calories,
@@ -284,6 +285,7 @@ async def get_order(ulid: str, db: AsyncSession = Depends(get_db)):
             "ulid": i.ulid,
             "bowl_id": i.bowl_id,
             "bowl_name": i.bowl.name if i.bowl else "Unknown",
+            "image_filename": getattr(i.bowl, "image_filename", None) if i.bowl else None,
             "meal_slot": i.meal_slot,
             "quantity": i.quantity,
             "adjusted_calories": float(i.adjusted_calories),
@@ -302,6 +304,11 @@ async def get_order(ulid: str, db: AsyncSession = Depends(get_db)):
             "email": customer.email,
             "goal": customer.goal,
             "calorie_profile": customer.calorie_profile,
+            "image_filename": customer.image_filename,
+            "latitude": getattr(customer, 'latitude', None),
+            "longitude": getattr(customer, 'longitude', None),
+            "address": getattr(customer, 'address', None),
+            "location_name": getattr(customer, 'location_name', None),
         }
 
     return {
