@@ -121,13 +121,19 @@ async def generate_daily_orders():
                         # Usually, subscription bowls might just cost the adjusted price, or the plan is prepaid.
                         # For now, we store the pure gross scaled price.
                         
+                        discount_pct = float(plan.discount_percentage) if plan.discount_percentage else 0.0
+                        billed_price = gross_price * (1 - (discount_pct / 100.0))
+                        
                         new_order = Order(
                             customer_id=customer.id,
                             plan_id=plan.id,
                             order_source=OrderSource.PLAN,
                             status=OrderStatus.CREATED,
                             target_date=tomorrow,
-                            total_order_price=gross_price
+                            total_order_price=gross_price,
+                            gross_price=gross_price,
+                            billed_price=billed_price,
+                            is_billed=False
                         )
                         
                         # Attach items

@@ -29,6 +29,11 @@ class Order(Base, TimestampMixin):
     
     target_date: Mapped[date] = mapped_column(Date, nullable=False, index=True)
     total_order_price: Mapped[float] = mapped_column(Numeric(10, 2), default=0.0, nullable=False)
+    gross_price: Mapped[float] = mapped_column(Numeric(10, 2), default=0.0, nullable=False)
+    billed_price: Mapped[float] = mapped_column(Numeric(10, 2), default=0.0, nullable=False)
+    
+    from sqlalchemy import Boolean
+    is_billed: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
 
     # Relationships
     customer = relationship("Customer")

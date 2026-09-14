@@ -81,6 +81,8 @@ class OrderCheckoutRequest(BaseModel):
     customer_ulid: str
     target_date: date
     items: List[CheckoutItem]
+    is_paid_now: Optional[bool] = False
+    payment_method: Optional[str] = "WALLET"
 
 class OrderStatusUpdateRequest(BaseModel):
     status: OrderStatus

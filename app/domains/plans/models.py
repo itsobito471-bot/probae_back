@@ -14,6 +14,7 @@ class PlanTier(Base, TimestampMixin):
     meal_type: Mapped[str] = mapped_column(String(255), nullable=False)
     total_price: Mapped[float] = mapped_column(Numeric(10, 2), default=0.0, nullable=False)
     discount_price: Mapped[float] = mapped_column(Numeric(10, 2), default=0.0, nullable=False)
+    discount_percentage: Mapped[float] = mapped_column(Numeric(5, 2), default=0.0, nullable=False)
     is_deleted: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
 
     selections: Mapped[list["PlanTierSelection"]] = relationship("PlanTierSelection", back_populates="plan_tier", cascade="all, delete-orphan")

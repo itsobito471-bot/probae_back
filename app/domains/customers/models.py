@@ -46,6 +46,9 @@ class Customer(Base, TimestampMixin):
     # Stats
     total_calories_ordered: Mapped[float] = mapped_column(Numeric(15, 2), default=0.0, nullable=False)
     
+    # Wallet
+    wallet_balance: Mapped[float] = mapped_column(Numeric(10, 2), default=0.0, nullable=False)
+
     # Status
     status: Mapped[CustomerStatus] = mapped_column(Enum(CustomerStatus), default=CustomerStatus.ONBOARDING, nullable=False)
 

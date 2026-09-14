@@ -185,26 +185,59 @@ async def checkout_order(req: OrderCheckoutRequest, db: AsyncSession = Depends(g
         new_order_items.append(new_item)
         total_price += item_data.adjusted_price * item_data.quantity
         
+    gross_price = total_price
+    discount_pct = 0.0
+    plan_id = None
+    if customer.selected_plan_id:
+        from app.domains.plans.models import PlanTier
+        plan = await db.scalar(select(PlanTier).where(PlanTier.ulid == customer.selected_plan_id))
+        if plan:
+            plan_id = plan.id
+            discount_pct = float(plan.discount_percentage) if plan.discount_percentage else 0.0
+            
+    billed_price = gross_price * (1 - (discount_pct / 100.0))
+
     new_order = Order(
         customer_id=customer.id,
-        plan_id=None,
+        plan_id=plan_id,
         order_source=OrderSource.CUSTOM,
         status=OrderStatus.CREATED,
         target_date=req.target_date,
-        total_order_price=total_price
+        total_order_price=gross_price,
+        gross_price=gross_price,
+        billed_price=billed_price,
+        is_billed=False
     )
     
     new_order.items = new_order_items
     db.add(new_order)
     await db.commit()
     
+    if req.is_paid_now:
+        from app.domains.transactions.models import TransactionLedger, TransactionType
+        
+        tx = TransactionLedger(
+            customer_id=customer.id,
+            transaction_type=TransactionType.DEPOSIT,
+            amount=billed_price,
+            reference_id=new_order.ulid,
+            description=f"Instant Payment for Order {new_order.ulid} via {req.payment_method}"
+        )
+        db.add(tx)
+        
+        customer.wallet_balance = float(customer.wallet_balance or 0.0) + billed_price
+        await db.commit()
+
     return {"success": True, "order_ulid": new_order.ulid}
 
 @router.patch("/{ulid}/status", response_model=dict)
 async def update_order_status(ulid: str, req: OrderStatusUpdateRequest, db: AsyncSession = Depends(get_db)):
     order = await db.scalar(
         select(Order)
-        .options(selectinload(Order.items).selectinload(OrderItem.bowl))
+        .options(
+            selectinload(Order.items).selectinload(OrderItem.bowl),
+            selectinload(Order.customer)
+        )
         .where(Order.ulid == ulid)
     )
     if not order:
@@ -212,55 +245,27 @@ async def update_order_status(ulid: str, req: OrderStatusUpdateRequest, db: Asyn
         
     old_status = order.status
     order.status = req.status
-
-    # Auto-deduct packaging stock when order transitions to PREPARED (packed)
-    if req.status == OrderStatus.PREPARED and old_status != OrderStatus.PREPARED:
-        from app.domains.packaging.models import Packaging, PackagingItemLink, PackagingComponentStockLog
-
-        for item in order.items:
-            bowl = item.bowl
-            if not bowl or not bowl.packaging_id:
-                continue
-
-            # Load packaging with its component links and components
-            packaging_result = await db.execute(
-                select(Packaging)
-                .options(selectinload(Packaging.components).selectinload(PackagingItemLink.component))
-                .where(Packaging.id == bowl.packaging_id)
-            )
-            packaging = packaging_result.scalar_one_or_none()
-            if not packaging:
-                continue
-
-            for link in packaging.components:
-                component = link.component
-                qty_to_deduct = link.quantity * item.quantity
-                prev_stock = float(component.current_stock)
-                new_stock = prev_stock - qty_to_deduct
-
-                if new_stock < 0:
-                    raise HTTPException(
-                        status_code=400,
-                        detail=f"Insufficient stock for packaging component '{component.name}'. "
-                               f"Required: {qty_to_deduct}, Available: {prev_stock}"
-                    )
-
-                component.current_stock = new_stock
-                stock_log = PackagingComponentStockLog(
-                    component_id=component.id,
-                    quantity_change=-qty_to_deduct,
-                    previous_stock=prev_stock,
-                    new_stock=new_stock,
-                    description=f"Auto-deducted when order packed",
-                    order_ulid=order.ulid,
-                    created_by_id=None,
-                )
-                db.add(stock_log)
-
-    if req.status == OrderStatus.DELIVERED and old_status != OrderStatus.DELIVERED:
-        from app.tasks.celery_tasks import task_create_calorie_log_on_delivery
-        task_create_calorie_log_on_delivery.delay(order.ulid)
+    
+    if req.status == OrderStatus.DISPATCHED and not order.is_billed:
+        from app.domains.transactions.models import TransactionLedger, TransactionType
+        
+        # Create Ledger Entry
+        tx = TransactionLedger(
+            customer_id=order.customer_id,
+            transaction_type=TransactionType.DEBIT,
+            amount=-abs(order.billed_price),
+            reference_id=order.ulid,
+            description=f"Order Dispatch - {order.ulid}"
+        )
+        db.add(tx)
+        
+        # Deduct from Wallet
+        if order.customer:
+            current_balance = float(order.customer.wallet_balance or 0.0)
+            order.customer.wallet_balance = current_balance - float(order.billed_price)
             
+        order.is_billed = True
+
     await db.commit()
     await db.refresh(order)
     

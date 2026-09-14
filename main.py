@@ -21,6 +21,7 @@ from app.domains.vendors.router import router as vendors_router
 from app.domains.plans.router import router as plans_router
 from app.domains.orders.router import router as orders_router
 from app.domains.kds.router import router as kds_router
+from app.domains.transactions.router import router as transactions_router
 
 app = FastAPI(
     title=settings.app_name,
