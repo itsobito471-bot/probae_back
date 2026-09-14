@@ -34,8 +34,10 @@ class Order(Base, TimestampMixin):
     
     from sqlalchemy import Boolean
     is_billed: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    driver_id: Mapped[int] = mapped_column(ForeignKey("drivers.id"), nullable=True)
 
     # Relationships
+    driver = relationship("Driver", back_populates="orders")
     customer = relationship("Customer")
     plan = relationship("PlanTier")
     items: Mapped[list["OrderItem"]] = relationship("OrderItem", back_populates="order", cascade="all, delete-orphan")

@@ -113,3 +113,7 @@ class OrderDetailCustomer(BaseModel):
     
     class Config:
         from_attributes = True
+
+class BulkAssignDriverRequest(BaseModel):
+    order_ulids: list[str]
+    driver_ulid: str

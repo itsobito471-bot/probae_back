@@ -31,6 +31,7 @@ from app.domains.customers.models import Customer, CustomerCalorieLog
 from app.domains.orders.models import Order, OrderItem
 from app.domains.kds.models import DailyPrepTask
 from app.domains.transactions.models import TransactionLedger
+from app.domains.logistics.models import Zone, Driver
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.

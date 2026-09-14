@@ -51,6 +51,10 @@ class Customer(Base, TimestampMixin):
 
     # Status
     status: Mapped[CustomerStatus] = mapped_column(Enum(CustomerStatus), default=CustomerStatus.ONBOARDING, nullable=False)
+    
+    # Logistics
+    zone_id: Mapped[int | None] = mapped_column(ForeignKey("zones.id", ondelete="SET NULL"), nullable=True)
+    zone = relationship("Zone", back_populates="customers")
 
     def __repr__(self):
         return f"<Customer {self.name} - {self.phone}>"

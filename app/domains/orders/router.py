@@ -7,7 +7,7 @@ from datetime import date
 
 from app.core.database import get_db
 from .models import Order, OrderItem, OrderSource, OrderStatus
-from .schemas import OrderListResponse, OrderPreviewRequest, OrderCheckoutRequest, OrderStatusUpdateRequest, OrderSchema, OrderItemUpdateRequest
+from .schemas import BulkAssignDriverRequest, OrderListResponse, OrderPreviewRequest, OrderCheckoutRequest, OrderStatusUpdateRequest, OrderSchema, OrderItemUpdateRequest
 from .scaling_service import scale_bowl
 from app.domains.customers.models import Customer
 from app.domains.bowls.models import Bowl, BowlIngredient
@@ -51,7 +51,8 @@ async def list_orders(
     query = query.order_by(Order.target_date.desc(), Order.id.desc())
     query = query.offset((page - 1) * limit).limit(limit)
     query = query.options(
-        selectinload(Order.customer),
+        selectinload(Order.customer).selectinload(Customer.zone),
+        selectinload(Order.driver),
         selectinload(Order.items).selectinload(OrderItem.bowl)
     )
     
@@ -86,6 +87,8 @@ async def list_orders(
             "status": o.status,
             "target_date": o.target_date,
             "total_order_price": o.total_order_price,
+            "zone_name": o.customer.zone.name if o.customer and getattr(o.customer, 'zone', None) else None,
+            "driver_name": o.driver.name if getattr(o, 'driver', None) else None,
             "items": items,
             "customer": {
                 "ulid": o.customer.ulid, 
@@ -397,3 +400,24 @@ async def update_order_item(ulid: str, item_ulid: str, req: OrderItemUpdateReque
 
     await db.commit()
     return {"success": True, "message": "Item updated"}
+
+@router.patch("/bulk-assign-driver")
+async def bulk_assign_driver(req: BulkAssignDriverRequest, db: AsyncSession = Depends(get_db)):
+    from app.domains.logistics.models import Driver
+    
+    driver = await db.scalar(select(Driver).where(Driver.ulid == req.driver_ulid))
+    if not driver:
+        raise HTTPException(status_code=404, detail="Driver not found")
+        
+    query = select(Order).where(Order.ulid.in_(req.order_ulids))
+    result = await db.execute(query)
+    orders = result.scalars().all()
+    
+    if not orders:
+        return {"success": True, "updated": 0}
+        
+    for order in orders:
+        order.driver_id = driver.id
+        
+    await db.commit()
+    return {"success": True, "updated": len(orders)}

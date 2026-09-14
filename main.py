@@ -22,6 +22,7 @@ from app.domains.plans.router import router as plans_router
 from app.domains.orders.router import router as orders_router
 from app.domains.kds.router import router as kds_router
 from app.domains.transactions.router import router as transactions_router
+from app.domains.logistics.router import router as logistics_router
 
 app = FastAPI(
     title=settings.app_name,
@@ -63,6 +64,7 @@ app.include_router(vendors_router, prefix="/api/v1/vendors", tags=["Vendors"])
 app.include_router(plans_router, prefix="/api/v1/plans", tags=["Plan Tiers"])
 app.include_router(orders_router, prefix="/api/v1/orders", tags=["Orders"])
 app.include_router(kds_router, prefix="/api/v1", tags=["KDS"])
+app.include_router(logistics_router, prefix="/api/v1")
 
 @app.get("/")
 async def root():
