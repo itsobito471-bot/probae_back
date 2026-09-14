@@ -7,6 +7,8 @@ class SettingsPayload(BaseModel):
     R2_BASE_URL: Optional[str] = None
     MAINTENANCE_MODE: Optional[str] = None
     SUPPORT_EMAIL: Optional[str] = None
+    ORDER_WINDOW_START: Optional[str] = None
+    ORDER_WINDOW_END: Optional[str] = None
 
     # This ensures if the frontend sends a random key, FastAPI just ignores it
     model_config = ConfigDict(extra="ignore")

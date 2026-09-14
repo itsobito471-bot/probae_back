@@ -9,6 +9,8 @@ class SettingKey(str, enum.Enum):
     R2_BASE_URL = "R2_BASE_URL"
     MAINTENANCE_MODE = "MAINTENANCE_MODE"
     SUPPORT_EMAIL = "SUPPORT_EMAIL"
+    ORDER_WINDOW_START = "ORDER_WINDOW_START"
+    ORDER_WINDOW_END = "ORDER_WINDOW_END"
 
 class SystemSetting(Base):
     __tablename__ = "system_settings"
