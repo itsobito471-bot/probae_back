@@ -40,7 +40,10 @@ async def create_bowl_category(
     # Reload with bowls to satisfy response model
     result = await db.execute(
         select(BowlCategory)
-        .options(selectinload(BowlCategory.bowls))
+        .options(
+            selectinload(BowlCategory.bowls).selectinload(Bowl.ingredients).selectinload(BowlIngredient.ingredient),
+            selectinload(BowlCategory.bowls).selectinload(Bowl.meal_category)
+        )
         .filter(BowlCategory.id == new_category.id)
     )
     return result.scalar_one()
@@ -116,9 +119,8 @@ async def get_bowl_category(ulid: str, db: AsyncSession = Depends(get_db)):
     result = await db.execute(
         select(BowlCategory)
         .options(
-            selectinload(BowlCategory.bowls)
-            .selectinload(Bowl.ingredients)
-            .selectinload(BowlIngredient.ingredient)
+            selectinload(BowlCategory.bowls).selectinload(Bowl.ingredients).selectinload(BowlIngredient.ingredient),
+            selectinload(BowlCategory.bowls).selectinload(Bowl.meal_category)
         )
         .filter(BowlCategory.ulid == ulid)
     )
@@ -141,7 +143,10 @@ async def update_bowl_category(
 ):
     result = await db.execute(
         select(BowlCategory)
-        .options(selectinload(BowlCategory.bowls))
+        .options(
+            selectinload(BowlCategory.bowls).selectinload(Bowl.ingredients).selectinload(BowlIngredient.ingredient),
+            selectinload(BowlCategory.bowls).selectinload(Bowl.meal_category)
+        )
         .filter(BowlCategory.ulid == ulid)
     )
     category = result.scalar_one_or_none()
@@ -164,8 +169,17 @@ async def update_bowl_category(
         setattr(category, key, value)
 
     await db.commit()
-    await db.refresh(category)
-    return category
+    
+    # Re-fetch to ensure relationships are loaded and not expired
+    result = await db.execute(
+        select(BowlCategory)
+        .options(
+            selectinload(BowlCategory.bowls).selectinload(Bowl.ingredients).selectinload(BowlIngredient.ingredient),
+            selectinload(BowlCategory.bowls).selectinload(Bowl.meal_category)
+        )
+        .filter(BowlCategory.ulid == ulid)
+    )
+    return result.scalar_one()
 
 @router.delete("/{ulid}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_bowl_category(ulid: str, db: AsyncSession = Depends(get_db)):
